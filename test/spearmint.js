@@ -1,10 +1,10 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-  deploy,
-  signSpearmintParameters,
-  generateSpearmintDataPackage,
-} = require("./test-utils");
+const { deploy } = require("../helpers/deploy.js");
+const { generateSpearmintDataPackage } = require("../helpers/data-packages.js");
+const { signSpearmintParameters } = require("../helpers/meta-transactions.js");
+const { mintAndDeposit } = require("../helpers/collateral-management.js");
+const { spearmint } = require("../helpers/actions.js");
 
 describe("Spearmint", () => {
   before(async () => {
@@ -18,68 +18,37 @@ describe("Spearmint", () => {
   });
 
   it("Spearmint", async () => {
-    await this.basis.mint(this.alice.address, 1000000);
-    await this.basis.mint(this.bob.address, 1000000);
-
-    await this.basis
-      .connect(this.alice)
-      .approve(this.collateralManager.address, 1000000);
-    await this.basis
-      .connect(this.bob)
-      .approve(this.collateralManager.address, 1000000);
-
-    await this.collateralManager
-      .connect(this.alice)
-      .deposit(this.basis.address, 1000000);
-    await this.collateralManager
-      .connect(this.bob)
-      .deposit(this.basis.address, 1000000);
-
-    const { trufinOracleSignature, spearmintDataPackage } =
-      await generateSpearmintDataPackage(
-        this.owner,
-        1000000,
-        100,
-        200,
-        100,
-        100,
-        0,
-        ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
-        this.basis.address,
-        400,
-        [
-          [300, 200],
-          [-300, 123],
-        ]
-      );
-
-    const { spearmintSignature: aliceSignature, spearmintParameters } =
-      await signSpearmintParameters(
-        this.alice,
-        trufinOracleSignature,
-        this.alice.address,
-        this.bob.address,
-        400,
-        true,
-        0
-      );
-
-    const { spearmintSignature: bobSignature } = await signSpearmintParameters(
-      this.bob,
-      trufinOracleSignature,
-      this.alice.address,
-      this.bob.address,
-      400,
-      true,
-      0
+    await mintAndDeposit(
+      this.collateralManager,
+      this.basis,
+      this.alice,
+      ethers.utils.parseEther("1")
     );
 
-    await this.TFM.spearmint(
-      spearmintDataPackage,
-      spearmintParameters,
-      aliceSignature,
-      bobSignature
+    await mintAndDeposit(
+      this.collateralManager,
+      this.basis,
+      this.bob,
+      ethers.utils.parseEther("1")
+    );
+
+    const strategyId = await spearmint(
+      this.alice,
+      this.bob,
+      1000,
+      true,
+      this.TFM,
+      this.owner,
+      10000000,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      this.basis.address,
+      1000,
+      [[1234, 5678]],
+      100,
+      100,
+      10,
+      10
     );
   });
 });

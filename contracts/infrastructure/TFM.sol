@@ -30,7 +30,7 @@ contract TFM is
     address trufinOracle;
 
     // Used to ensure only recent data packages are valid => updated periodically
-    uint256 oracleNonce;
+    uint256 public oracleNonce;
 
     // Time at which the oracle nonce was last updated
     uint256 latestOracleNonceUpdateTime;
