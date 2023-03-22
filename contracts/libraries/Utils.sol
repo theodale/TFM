@@ -83,10 +83,54 @@ library Utils {
         );
     }
 
-    // function ensureTransferApprovals(
-    //     TransferParameters calldata _parameters,
-    //     Strategy storage _strategy
-    // ) external {}
+    function ensureTransferApprovals(
+        TransferParameters calldata _parameters,
+        Strategy storage _strategy,
+        address _sender,
+        bool alphaTransfer
+    ) external view {
+        bytes32 message = ECDSA.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    _parameters.oracleSignature,
+                    _parameters.strategyId,
+                    _parameters.recipient,
+                    _parameters.premium,
+                    Action.TRANSFER
+                )
+            )
+        );
+
+        require(
+            _isValidSignature(message, _parameters.senderSignature, _sender),
+            "Sender signature invalid"
+        );
+
+        require(
+            _isValidSignature(
+                message,
+                _parameters.recipientSignature,
+                _parameters.recipient
+            ),
+            "Recipient signature invalid"
+        );
+
+        // Check non-transferring party's signature if strategy is not transferable
+        if (!_strategy.transferable) {
+            address staticParty = alphaTransfer
+                ? _strategy.omega
+                : _strategy.alpha;
+
+            require(
+                _isValidSignature(
+                    message,
+                    _parameters.staticPartySignature,
+                    staticParty
+                ),
+                "Static party signature invalid"
+            );
+        }
+    }
 
     function validateTransferTerms(
         TransferTerms calldata _terms,
@@ -94,19 +138,21 @@ library Utils {
         address _trufinOracle,
         bytes memory _trufinOracleSignature
     ) external view {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                _strategy.expiry,
-                _strategy.bra,
-                _strategy.ket,
-                _strategy.basis,
-                _strategy.amplitude,
-                _strategy.phase,
-                _terms.senderFee,
-                _terms.recipientFee,
-                _terms.recipientCollateralRequirement,
-                _terms.alphaTransfer,
-                _terms.oracleNonce
+        bytes32 messageHash = ECDSA.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    _strategy.expiry,
+                    _strategy.bra,
+                    _strategy.ket,
+                    _strategy.basis,
+                    _strategy.amplitude,
+                    _strategy.phase,
+                    _terms.senderFee,
+                    _terms.recipientFee,
+                    _terms.recipientCollateralRequirement,
+                    _terms.alphaTransfer,
+                    _terms.oracleNonce
+                )
             )
         );
 

@@ -95,7 +95,7 @@ contract CollateralManager is
         emit Withdrawal(msg.sender, _basis, amount);
     }
 
-    /// *** TFM METHODS ***
+    // *** TFM COLLATERAL METHODS ***
 
     function executeSpearmint(
         uint256 _strategyId,
@@ -119,25 +119,14 @@ contract CollateralManager is
             _omegaCollateralRequirement +
             _omegaFee;
 
-        if (_premium > 0) {
-            PersonalPool(alphaPool).transferERC20(
-                _basis,
-                omegaPool,
-                uint256(_premium)
-            );
-
-            unallocatedCollateral[_alpha][_basis] -= uint256(_premium);
-            unallocatedCollateral[_omega][_basis] += uint256(_premium);
-        } else if (_premium < 0) {
-            PersonalPool(omegaPool).transferERC20(
-                _basis,
-                alphaPool,
-                uint256(-_premium)
-            );
-
-            unallocatedCollateral[_alpha][_basis] += uint256(-_premium);
-            unallocatedCollateral[_omega][_basis] -= uint256(-_premium);
-        }
+        _transferPremium(
+            _alpha,
+            _omega,
+            alphaPool,
+            omegaPool,
+            _basis,
+            _premium
+        );
 
         // Allocate required collateral to the new strategy
         allocatedCollateral[_alpha][_strategyId] += _alphaCollateralRequirement;
@@ -150,6 +139,55 @@ contract CollateralManager is
         if (_omegaFee > 0) {
             PersonalPool(omegaPool).transferERC20(_basis, treasury, _omegaFee);
         }
+    }
+
+    function executeTransfer(
+        uint256 _strategyId,
+        address _sender,
+        address _recipient,
+        address _basis,
+        uint256 recipientCollateralRequirement,
+        uint256 _senderFee,
+        uint256 _recipientFee,
+        int256 _premium
+    ) external tfmOnly {
+        address payable senderPool = _getPersonalPool(_sender);
+        address payable recipientPool = _getPersonalPool(_recipient);
+
+        // Unallocate collateral sender has allocated to the strategy
+        unallocatedCollateral[_sender][_basis] += allocatedCollateral[_sender][
+            _strategyId
+        ];
+        allocatedCollateral[_sender][_strategyId] = 0;
+
+        // Allocate recipient's collateral to the strategy
+        unallocatedCollateral[_recipient][
+            _basis
+        ] -= recipientCollateralRequirement;
+        allocatedCollateral[_recipient][
+            _strategyId
+        ] += recipientCollateralRequirement;
+
+        _transferPremium(
+            _sender,
+            _recipient,
+            senderPool,
+            recipientPool,
+            _basis,
+            _premium
+        );
+
+        // Register fees taken
+        unallocatedCollateral[_sender][_basis] -= _senderFee;
+        unallocatedCollateral[_recipient][_basis] -= _recipientFee;
+
+        // Transfer fees to treasury
+        PersonalPool(senderPool).transferERC20(_basis, treasury, _senderFee);
+        PersonalPool(recipientPool).transferERC20(
+            _basis,
+            treasury,
+            _recipientFee
+        );
     }
 
     /// *** INTERNAL METHODS ***
@@ -168,6 +206,36 @@ contract CollateralManager is
         }
 
         return personalPool;
+    }
+
+    // Execute a premium transfer between two parties
+    function _transferPremium(
+        address _partyOne,
+        address _partyTwo,
+        address payable _partyOnePool,
+        address payable _partyTwoPool,
+        address _basis,
+        int256 _premium
+    ) internal {
+        if (_premium > 0) {
+            PersonalPool(_partyOnePool).transferERC20(
+                _basis,
+                _partyTwoPool,
+                uint256(_premium)
+            );
+
+            unallocatedCollateral[_partyOne][_basis] -= uint256(_premium);
+            unallocatedCollateral[_partyTwo][_basis] += uint256(_premium);
+        } else if (_premium < 0) {
+            PersonalPool(_partyTwoPool).transferERC20(
+                _basis,
+                _partyOnePool,
+                uint256(-_premium)
+            );
+
+            unallocatedCollateral[_partyOne][_basis] += uint256(-_premium);
+            unallocatedCollateral[_partyTwo][_basis] -= uint256(-_premium);
+        }
     }
 
     // function executeLiquidation(

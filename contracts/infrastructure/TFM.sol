@@ -108,6 +108,7 @@ contract TFM is
 
     // *** STRATEGY ACTIONS ***
 
+    // Mint a new strategy
     function spearmint(
         SpearmintTerms calldata _terms,
         SpearmintParameters calldata _parameters
@@ -146,13 +147,7 @@ contract TFM is
 
     function peppermint() external {}
 
-    // SIGNED BY ORACLE
-    // recipientRequirement
-    // recipientFee
-    // senderFee
-    // oracle nonce
-    // alphaTransfer
-
+    // Transfer a strategy position
     function transfer(
         TransferTerms calldata _terms,
         TransferParameters calldata _parameters
@@ -166,42 +161,42 @@ contract TFM is
             _parameters.oracleSignature
         );
 
-        // Utils.ensureTransferApprovals(_parameters, strategy);
+        address sender = _terms.alphaTransfer ? strategy.alpha : strategy.omega;
+
+        Utils.ensureTransferApprovals(
+            _parameters,
+            strategy,
+            sender,
+            _terms.alphaTransfer
+        );
+
+        _checkOracleNonce(_terms.oracleNonce);
+
+        collateralManager.executeTransfer(
+            _parameters.strategyId,
+            sender,
+            _parameters.recipient,
+            strategy.basis,
+            _terms.recipientCollateralRequirement,
+            _terms.senderFee,
+            _terms.recipientFee,
+            _parameters.premium
+        );
+
+        // Increment strategy's action nonce to prevent replay using _signatures
+        strategy.actionNonce++;
+
+        // Update state to reflect postition transfer
+        if (_terms.alphaTransfer) {
+            strategy.alpha = _parameters.recipient;
+        } else {
+            strategy.omega = _parameters.recipient;
+        }
+
+        emit Transfer(_parameters.strategyId);
     }
 
-    // function transfer(
-    //     TransferDataPackage calldata _transferDataPackage,
-    //     TransferParameters calldata _transferParameters,
-    //     bytes calldata _trufinOracleSignature,
-    //     bytes[] calldata _approverSignatures
-    // ) external {
-    //     Strategy storage strategy = strategies[_transferParameters.strategyId];
-
-    //     Utils.checkTransferApprovals(
-    //         _transferParameters,
-    //         strategy,
-    //         _approverSignatures
-    //     );
-
-    //     Utils.checkTransferDataPackage(
-    //         _transferDataPackage,
-    //         strategy,
-    //         trufinOracle,
-    //         _trufinOracleSignature
-    //     );
-
-    //     // collateralManager.executeTransfer();
-
-    //     // Increment strategy's action nonce to prevent replay using _signatures
-    //     strategy.actionNonce++;
-
-    //     // Update transferred strategy position
-    //     if (_transferParameters.alphaTransfer) {
-    //         strategy.alpha = _transferParameters.recipient;
-    //     } else {
-    //         strategy.omega = _transferParameters.recipient;
-    //     }
-    // }
+    function combine() external {}
 
     // *** LIQUIDATION ***
 
