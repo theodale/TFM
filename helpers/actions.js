@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const { generateSpearmintDataPackage } = require("./data-packages.js");
+const { generateSpearmintTerms } = require("./terms.js");
 const { signSpearmintParameters } = require("./meta-transactions.js");
 
 const spearmint = async (
@@ -23,8 +23,8 @@ const spearmint = async (
 ) => {
   const oracleNonce = await TFM.oracleNonce();
 
-  const { trufinOracleSignature, spearmintDataPackage } =
-    await generateSpearmintDataPackage(
+  const { trufinOracleSignature, spearMintTerms } =
+    await generateSpearmintTerms(
       oracle,
       expiry,
       alphaCollateralRequirement,
@@ -65,7 +65,7 @@ const spearmint = async (
   const strategyId = await TFM.strategyCounter();
 
   await TFM.spearmint(
-    spearmintDataPackage,
+    spearMintTerms,
     spearmintParameters,
     alphaSignature,
     omegaSignature

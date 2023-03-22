@@ -1,14 +1,16 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { deploy } = require("../helpers/deploy.js");
-const { generateSpearmintDataPackage } = require("../helpers/data-packages.js");
+const { generateSpearmintTerms } = require("../helpers/terms.js");
 const { signSpearmintParameters } = require("../helpers/meta-transactions.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");
 const { spearmint } = require("../helpers/actions.js");
 
 describe("Spearmint", () => {
+  let res;
   before(async () => {
     [this.owner, this.alice, this.bob] = await ethers.getSigners();
+    this.eth = "0x59C877ece1121061773DD1551649028C6FC1423E";
   });
 
   beforeEach(async () => {
@@ -16,49 +18,32 @@ describe("Spearmint", () => {
       TFM: this.TFM,
       CollateralManager: this.collateralManager,
       MockERC20: this.basis,
+      Utils: this.utils,
     } = await deploy(this.owner));
+    res = await generateSpearmintTerms(this.owner,16273919,1000,2000,100,100,1,this.eth,this.basis.address,this.basis.address,2000000,[[2000000,14000000]])
+
   });
 
-  describe("Access Control", () => {
-    it("should mint and deposit", async () => {});
-
-    it("should mint and deposit", async () => {});
-
-    it("should mint and deposit", async () => {});
+  describe("Oracle Signature Verification", () => {
+    it("should validate correct Oracle signature", async () => {
+        await this.utils.validateSpearmintTerms(this.res.spearmintTerms,this.res.trufinOracleSignature,this.owner.address)
+    });
+    
+    it("should revert with wrong signer", async () => {
+      await expect(
+        this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
+      ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
   });
 
-  it("First spearmint test", async () => {
-    // await mintAndDeposit(
-    //   this.collateralManager,
-    //   this.basis,
-    //   this.alice,
-    //   ethers.utils.parseEther("1")
-    // );
-    // await mintAndDeposit(
-    //   this.collateralManager,
-    //   this.basis,
-    //   this.bob,
-    //   ethers.utils.parseEther("1")
-    // );
-    // const strategyId = await spearmint(
-    //   this.alice,
-    //   this.bob,
-    //   1000,
-    //   true,
-    //   this.TFM,
-    //   this.owner,
-    //   10000000,
-    //   ethers.constants.AddressZero,
-    //   ethers.constants.AddressZero,
-    //   this.basis.address,
-    //   1000,
-    //   [[1234, 5678]],
-    //   100,
-    //   100,
-    //   10,
-    //   10
-    // );
-  });
+    it("should revert with wrong terms", async () => {
+      res.spearmintTerms.expiry = 16270000
+      await expect(
+        this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
+      ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
+    })
+})
 
-  it("Sencond spearmint test", async () => {});
-});
+}
+  //
+  // it("Sencond spearmint test", async () => {});
+);

@@ -6,6 +6,8 @@
     "@openzeppelin/contracts": "^4.8.2",
     "@openzeppelin/contracts-upgradeable": "^4.8.2",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.7.2",
     "hardhat": "^2.13.0"
   }
 }

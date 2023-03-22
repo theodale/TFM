@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const generateSpearmintDataPackage = async (
+const generateSpearmintTerms = async (
   oracle,
   expiry,
   alphaCollateralRequirement,
@@ -47,7 +47,7 @@ const generateSpearmintDataPackage = async (
     ethers.utils.arrayify(hash)
   );
 
-  const spearmintDataPackage = {
+  const spearmintTerms = {
     expiry: expiry,
     alphaCollateralRequirement: alphaCollateralRequirement,
     omegaCollateralRequirement: omegaCollateralRequirement,
@@ -61,9 +61,9 @@ const generateSpearmintDataPackage = async (
     phase: phase,
   };
 
-  return { trufinOracleSignature, spearmintDataPackage };
+  return { trufinOracleSignature, spearmintTerms };
 };
 
 module.exports = {
-  generateSpearmintDataPackage,
+  generateSpearmintTerms,
 };

@@ -18,7 +18,10 @@ const deploy = async (owner) => {
   // Deploy proxies and implementation contracts
   const CollateralManager = await upgrades.deployProxy(
     CollateralManagerFactory,
-    [owner.address, owner.address]
+    [owner.address, owner.address],
+    {
+      kind: "uups",
+    }
   );
 
   const TFM = await upgrades.deployProxy(
