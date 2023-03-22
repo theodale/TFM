@@ -26,7 +26,7 @@ describe("Spearmint", () => {
 
   describe("Oracle Signature Verification", () => {
     it("should validate correct Oracle signature", async () => {
-        await this.utils.validateSpearmintTerms(this.res.spearmintTerms,this.res.trufinOracleSignature,this.owner.address)
+        await this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.owner.address)
     });
     
     it("should revert with wrong signer", async () => {
@@ -41,6 +41,25 @@ describe("Spearmint", () => {
         this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
       ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
     })
+})
+describe("Alpha/Omega Signature Verification", () => {
+  it("should validate correct Alpha/Omega signature", async () => {
+      const sign = await signSpearmintParameters(this.alice,this.bob,res.trufinOracleSignature,this.alice.address,this.bob.address,1000,true,1)
+      await this.utils.ensureSpearmintApprovals(sign.spearmintParameters,1)
+  });
+  
+//   it("should revert with wrong signer", async () => {
+//     await expect(
+//       this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
+//     ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
+// });
+
+//   it("should revert with wrong terms", async () => {
+//     res.spearmintTerms.expiry = 16270000
+//     await expect(
+//       this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
+//     ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
+//   })
 })
 
 }

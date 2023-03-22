@@ -1,7 +1,8 @@
 const { ethers } = require("hardhat");
 
 const signSpearmintParameters = async (
-  signer,
+  alphaSigner,
+  omegaSigner,
   trufinOracleSignature,
   alphaAddress,
   omegaAddress,
@@ -22,14 +23,18 @@ const signSpearmintParameters = async (
     ]
   );
 
-  const spearmintSignature = await signer.signMessage(
+  const spearmintSignatureA = await alphaSigner.signMessage(
     ethers.utils.arrayify(hash)
   );
-
+  const spearmintSignatureO = await omegaSigner.signMessage(
+    ethers.utils.arrayify(hash)
+  );
   const spearmintParameters = {
     trufinOracleSignature: trufinOracleSignature,
     alpha: alphaAddress,
     omega: omegaAddress,
+    alphaSignature: spearmintSignatureA,
+    omegaSignature:spearmintSignatureO,
     premium: premium,
     transferable: transferable,
     mintNonce: mintNonce,
