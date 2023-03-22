@@ -46,9 +46,6 @@ contract CollateralManager is
         require(msg.sender == tfm, "CollateralManager: TFM only");
         _;
     }
-    
-    /// *** ERRORS ***
-    error NoPersonalPool();
 
     // *** INITIALIZER ***
 
@@ -78,7 +75,7 @@ contract CollateralManager is
 
     // Deposit basis tokens into unallocated collateral balance
     function deposit(address _basis, uint256 amount) external {
-        address payable pool = _getOrCreatePersonalPool(msg.sender);
+        address payable pool = _getPersonalPool(msg.sender);
 
         IERC20(_basis).safeTransferFrom(msg.sender, pool, amount);
 
@@ -113,7 +110,7 @@ contract CollateralManager is
     ) external tfmOnly {
         address payable alphaPool = _getPersonalPool(_alpha);
         address payable omegaPool = _getPersonalPool(_omega);
-        
+
         unallocatedCollateral[_alpha][_basis] -=
             _alphaCollateralRequirement +
             _alphaFee;
@@ -131,9 +128,7 @@ contract CollateralManager is
 
             unallocatedCollateral[_alpha][_basis] -= uint256(_premium);
             unallocatedCollateral[_omega][_basis] += uint256(_premium);
-        } 
-        else if(_premium<0) {
-            //@tiff convert premium into positive int? 
+        } else if (_premium < 0) {
             PersonalPool(omegaPool).transferERC20(
                 _basis,
                 alphaPool,
@@ -149,12 +144,30 @@ contract CollateralManager is
         allocatedCollateral[_omega][_strategyId] += _omegaCollateralRequirement;
 
         if (_alphaFee > 0) {
-            _takeFee(_alpha, _basis, _alphaFee);
+            PersonalPool(alphaPool).transferERC20(_basis, treasury, _alphaFee);
         }
 
         if (_omegaFee > 0) {
-            _takeFee(_omega, _basis, _omegaFee);
+            PersonalPool(omegaPool).transferERC20(_basis, treasury, _omegaFee);
         }
+    }
+
+    /// *** INTERNAL METHODS ***
+
+    // Possibly refactor in future => we may be able to assume that a personal pool already exists for the user in certain scenarios
+    function _getPersonalPool(
+        address _user
+    ) internal returns (address payable) {
+        address payable personalPool = personalPools[_user];
+
+        // Deploy new personal pool for user if they have not got one
+        if (personalPool == address(0)) {
+            personalPool = payable(new PersonalPool());
+
+            personalPools[_user] = personalPool;
+        }
+
+        return personalPool;
     }
 
     // function executeLiquidation(
@@ -216,43 +229,4 @@ contract CollateralManager is
     //     // Call new checkCollateralNonce method here
     //     checkCollateralNonce( _liquidationParams.collateralNonce);
     // }
-
-    /// *** INTERNAL METHODS ***
-
-    function _takeFee(address _user, address _basis, uint256 _fee) internal {
-        address payable pool = _getPersonalPool(_user);
-
-        PersonalPool(pool).transferERC20(_basis, treasury, _fee);
-    }
-
-    function _getOrCreatePersonalPool(
-        address _user
-    ) internal returns (address payable) {
-        address payable personalPool = personalPools[_user];
-        if (personalPool == address(0)) {
-            personalPool = payable(new PersonalPool());
-            personalPools[_user] = personalPool;
-        }
-        return personalPool;
-    }
-
- /**
-        @notice Function to get users personal pool 
-        @dev This function is used when a user must have a personal pool and therefore reverts if the personal pool address is zero
-        @param _user user to get the pool address for 
-        @return personal pool address
-
-    */
-    function _getPersonalPool(
-        address _user
-    ) internal returns (address payable) {
-        address payable personalPool = personalPools[_user];
-        assembly {
-        if iszero(personalPool) {
-            let ptr := mload(0x40)
-            mstore(ptr, 0x51e9089f00000000000000000000000000000000000000000000000000000000) // selector for `NoPersonalPool()`
-            revert(ptr, 0x4)
-        }
-        return personalPool;
-    }
 }
