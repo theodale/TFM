@@ -19,9 +19,15 @@ struct Strategy {
     uint256 expiry;
     int256 amplitude;
     int256[2][] phase;
+    // Prevents replay of strategy action meta-transactions
+    uint256 actionNonce;
 }
 
-struct SpearmintDataPackage {
+// *** ACTIONS ***
+
+// SPEARMINT
+
+struct SpearmintTerms {
     uint256 expiry;
     uint256 alphaCollateralRequirement;
     uint256 omegaCollateralRequirement;
@@ -36,12 +42,32 @@ struct SpearmintDataPackage {
 }
 
 struct SpearmintParameters {
-    // Trufin orcale signature for the spearmint's data pacakge => links spearminter approval to strategy detailed by the package
-    bytes trufinOracleSignature;
+    // Links to a specific set of spearmint terms
+    bytes oracleSignature;
     address alpha;
+    bytes alphaSignature;
     address omega;
+    bytes omegaSignature;
     int256 premium;
     bool transferable;
+}
+
+// TRANSFER
+
+struct TransferTerms {
+    uint256 recipientCollateralRequirement;
+    uint256 oracleNonce;
+    uint256 senderFee;
+    uint256 recipientFee;
+    bool alphaTransfer;
+}
+
+struct TransferParameters {
+    uint256 strategyId;
+    address recipient;
+    uint256 premium;
+    // Links to specific set of transfer terms
+    bytes oracleSignature;
 }
 
 // OLD

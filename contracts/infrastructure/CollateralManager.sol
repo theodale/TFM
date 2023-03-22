@@ -152,6 +152,36 @@ contract CollateralManager is
         }
     }
 
+    //   collateralManager.executeTransfer(
+    //         _transferParameters.strategyId,
+    //         _transferParameters.sender,
+    //         _transferParameters.recipient,
+    //         _transferDataPackage.alphaCollateralRequirement,
+    //         _transferDataPackage.omegaCollateralRequirement,
+    //         _transferDataPackage.senderFee,
+    //         _transferDataPackage.recipientFee,
+    //         _transferParameters.premium
+    //     );
+
+    // is it an alpha or a omega transfer?
+
+    // function executeTransfer(
+    //     uint256 _strategyId,
+    //     address _sender,
+    //     address _recipient,
+    //     address _basis,
+    //     uint256 _recipientCollateralRequirement,
+    //     uint256 _senderFee,
+    //     uint256 _recipientFee,
+    //     int256 _premium
+    // ) external tfmOnly {
+    //     unallocatedCollateral[_recipient][_basis] -=
+    //         _recipientCollateralRequirement +
+    //         _recipientFee;
+
+    //     unallocatedCollateral[_sender][_basis] -= _senderFee;
+    // }
+
     // function executeLiquidation(
     //     LiquidationParams calldata _liquidationParams,
     //     uint256 _strategyId,
@@ -220,6 +250,7 @@ contract CollateralManager is
         PersonalPool(pool).transferERC20(_basis, treasury, _fee);
     }
 
+    // We ensure this on deposit
     function _getOrCreatePersonalPool(
         address _user
     ) internal returns (address payable) {

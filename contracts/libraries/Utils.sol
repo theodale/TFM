@@ -9,67 +9,101 @@ import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
-library Utils {
-    // TO DO:
-    // - Ensure no signature replay across actions - do we need enum?
-    // - Check if use of encodePacked is safe
+// TO DO:
+// - Ensure no signature replay across actions - do we need enum?
+// - Check if use of encodePacked is safe
 
-    // Checks if a alpha and omega have approved a spearmint
-    function checkSpearminterSignatures(
-        SpearmintParameters memory _spearmintParameters,
-        bytes memory alphaSignature,
-        bytes memory omegaSignature,
+library Utils {
+    // SPEARMINT
+
+    // Checks that alpha and omega have provided signatures to authorise the spearmint
+    function ensureSpearmintApprovals(
+        SpearmintParameters calldata _parameters,
         uint256 _mintNonce
     ) external view {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                _spearmintParameters.trufinOracleSignature,
-                _spearmintParameters.alpha,
-                _spearmintParameters.omega,
-                _spearmintParameters.premium,
-                _spearmintParameters.transferable,
-                _mintNonce,
-                Action.MINT
+        bytes32 message = ECDSA.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    _parameters.oracleSignature,
+                    _parameters.alpha,
+                    _parameters.omega,
+                    _parameters.premium,
+                    _parameters.transferable,
+                    _mintNonce,
+                    Action.MINT
+                )
             )
         );
 
         require(
             _isValidSignature(
-                messageHash,
-                alphaSignature,
-                _spearmintParameters.alpha
+                message,
+                _parameters.alphaSignature,
+                _parameters.alpha
             ),
-            "TFM: Alpha signature invalid"
+            "Alpha signature invalid"
         );
 
         require(
             _isValidSignature(
-                messageHash,
-                omegaSignature,
-                _spearmintParameters.omega
+                message,
+                _parameters.omegaSignature,
+                _parameters.omega
             ),
-            "TFM: Omega signature invalid"
+            "Omega signature invalid"
         );
     }
 
-    function checkSpearmintDataPackage(
-        SpearmintDataPackage memory _spearmintDataPackage,
-        bytes memory _trufinOracleSignature,
-        address _trufinOracle
+    function validateSpearmintTerms(
+        SpearmintTerms calldata _terms,
+        bytes calldata _oracleSignature,
+        address _oracle
+    ) external view {
+        bytes32 messageHash = ECDSA.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    _terms.expiry,
+                    _terms.alphaCollateralRequirement,
+                    _terms.omegaCollateralRequirement,
+                    _terms.alphaFee,
+                    _terms.omegaFee,
+                    _terms.oracleNonce,
+                    _terms.bra,
+                    _terms.ket,
+                    _terms.basis,
+                    _terms.amplitude,
+                    _terms.phase
+                )
+            )
+        );
+
+        require(
+            _isValidSignature(messageHash, _oracleSignature, _oracle),
+            "TFM: Invalid Trufin oracle signature"
+        );
+    }
+
+    // function ensureTransferApprovals()
+
+    function validateTransferTerms(
+        TransferTerms calldata _terms,
+        Strategy storage _strategy,
+        address _trufinOracle,
+        bytes memory _trufinOracleSignature
     ) external view {
         bytes32 messageHash = keccak256(
             abi.encodePacked(
-                _spearmintDataPackage.expiry,
-                _spearmintDataPackage.alphaCollateralRequirement,
-                _spearmintDataPackage.omegaCollateralRequirement,
-                _spearmintDataPackage.alphaFee,
-                _spearmintDataPackage.omegaFee,
-                _spearmintDataPackage.oracleNonce,
-                _spearmintDataPackage.bra,
-                _spearmintDataPackage.ket,
-                _spearmintDataPackage.basis,
-                _spearmintDataPackage.amplitude,
-                _spearmintDataPackage.phase
+                _strategy.expiry,
+                _strategy.bra,
+                _strategy.ket,
+                _strategy.basis,
+                _strategy.amplitude,
+                _strategy.phase,
+                _terms.senderFee,
+                _terms.recipientFee,
+                _terms.recipientCollateralRequirement,
+                _terms.alphaTransfer,
+                _terms.oracleNonce
             )
         );
 
@@ -89,18 +123,64 @@ library Utils {
         bytes memory _signature,
         address _signer
     ) internal view returns (bool) {
-        bytes32 prefixedMessageHash = ECDSA.toEthSignedMessageHash(
-            _messageHash
-        );
-
         bool valid = SignatureChecker.isValidSignatureNow(
             _signer,
-            prefixedMessageHash,
+            _messageHash,
             _signature
         );
 
         return valid;
     }
+
+    // // TRANSFER
+
+    // function checkTransferApprovals(
+    //     TransferParameters memory _transferParameters,
+    //     Strategy storage _strategy,
+    //     bytes[] memory _signatures
+    // ) external view {
+    //     bytes32 messageHash = keccak256(
+    //         abi.encodePacked(
+    //             _transferParameters.strategyId,
+    //             _transferParameters.alphaTransfer,
+    //             _transferParameters.recipient,
+    //             _transferParameters.premium,
+    //             _strategy.actionNonce
+    //         )
+    //     );
+    // }
+
+    // function checkTransferDataPackage(
+    //     TransferDataPackage memory _transferDataPackage,
+    //     Strategy storage _strategy,
+    //     address _trufinOracle,
+    //     bytes memory _trufinOracleSignature
+    // ) external view {
+    //     bytes32 messageHash = keccak256(
+    //         abi.encodePacked(
+    //             _strategy.expiry,
+    //             _strategy.bra,
+    //             _strategy.ket,
+    //             _strategy.basis,
+    //             _strategy.amplitude,
+    //             _strategy.phase,
+    //           _terms.senderFee,
+    //           _terms.recipientFee,
+    //           _terms.alphaCollateralRequirement,
+    //           _terms.omegaCollateralRequirement,
+    //           _terms.oracleNonce
+    //         )
+    //     );
+
+    //     require(
+    //         _isValidSignature(
+    //             messageHash,
+    //             _trufinOracleSignature,
+    //             _trufinOracle
+    //         ),
+    //         "TFM: Invalid Trufin oracle signature"
+    //     );
+    // }
 
     // /**
     //  * @notice check collateral requirements web2-signature but also some signature component can be taken from strategy

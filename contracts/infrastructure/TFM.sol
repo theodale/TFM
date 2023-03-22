@@ -19,11 +19,6 @@ contract TFM is
     UUPSUpgradeable,
     ITFM
 {
-    // *** LIBRARIES ***
-
-    using Utils for int256;
-    using Utils for int256[2][];
-
     // *** STATE VARIABLES ***
 
     // Signs and validates data packages
@@ -39,9 +34,11 @@ contract TFM is
     uint256 lockTime;
 
     // Prevents replay attacks using spearminter signatures
+    // See getMintNonce() function for key/value meanings
     mapping(address => mapping(address => uint256)) internal mintNonce;
 
     // Stores strategy states
+    // Mapts strategy ID => strategy
     mapping(uint256 => Strategy) internal strategies;
 
     // Stores next strategy ID
@@ -52,9 +49,6 @@ contract TFM is
 
     // Protocol's collateral management contract
     CollateralManager public collateralManager;
-
-    // Prevent replay of strategy action meta-transactions
-    mapping(uint256 => uint256) public strategyNonce;
 
     // *** INITIALIZE ***
 
@@ -101,11 +95,11 @@ contract TFM is
 
     // *** ADMIN SETTERS ***
 
-    function setLiquidatorAddress(address _liquidator) public onlyOwner {
+    function setLiquidator(address _liquidator) public onlyOwner {
         liquidator = _liquidator;
     }
 
-    function setCollateralManagerAddress(
+    function setCollateralManager(
         address _collateralManager
     ) external onlyOwner {
         collateralManager = CollateralManager(_collateralManager);
@@ -113,54 +107,100 @@ contract TFM is
 
     // *** STRATEGY ACTIONS ***
 
-    // Thoughts
-    // - change argument structs?
-    // - make single call to utils?
     function spearmint(
-        SpearmintDataPackage calldata _spearmintDataPackage,
-        SpearmintParameters calldata _spearmintParameters,
-        bytes calldata alphaSignature,
-        bytes calldata omegaSignature
+        SpearmintTerms calldata _terms,
+        SpearmintParameters calldata _parameters
     ) external {
-        Utils.checkSpearminterSignatures(
-            _spearmintParameters,
-            alphaSignature,
-            omegaSignature,
-            getMintNonce(_spearmintParameters.alpha, _spearmintParameters.omega)
-        );
-
-        // _checkOracleNonce(_spearmintDataPackage.oracleNonce);
-
-        Utils.checkSpearmintDataPackage(
-            _spearmintDataPackage,
-            _spearmintParameters.trufinOracleSignature,
+        Utils.validateSpearmintTerms(
+            _terms,
+            _parameters.oracleSignature,
             trufinOracle
         );
 
-        uint256 strategyId = _createStrategy(
-            _spearmintDataPackage,
-            _spearmintParameters
+        Utils.ensureSpearmintApprovals(
+            _parameters,
+            getMintNonce(_parameters.alpha, _parameters.omega)
         );
+
+        _checkOracleNonce(_terms.oracleNonce);
+
+        uint256 strategyId = _createStrategy(_terms, _parameters);
 
         collateralManager.executeSpearmint(
             strategyId,
-            _spearmintParameters.alpha,
-            _spearmintParameters.omega,
-            _spearmintDataPackage.basis,
-            _spearmintDataPackage.alphaCollateralRequirement,
-            _spearmintDataPackage.omegaCollateralRequirement,
-            _spearmintDataPackage.alphaFee,
-            _spearmintDataPackage.omegaFee,
-            _spearmintParameters.premium
+            _parameters.alpha,
+            _parameters.omega,
+            _terms.basis,
+            _terms.alphaCollateralRequirement,
+            _terms.omegaCollateralRequirement,
+            _terms.alphaFee,
+            _terms.omegaFee,
+            _parameters.premium
         );
 
-        _incrementMintNonce(
-            _spearmintParameters.alpha,
-            _spearmintParameters.omega
-        );
+        _incrementMintNonce(_parameters.alpha, _parameters.omega);
 
         emit Spearmint(strategyId);
     }
+
+    function peppermint() external {}
+
+    // SIGNED BY ORACLE
+    // recipientRequirement
+    // recipientFee
+    // senderFee
+    // oracle nonce
+    // alphaTransfer
+
+    function transfer(
+        TransferTerms calldata _terms,
+        TransferParameters calldata _parameters
+    ) external {
+        Strategy storage strategy = strategies[_parameters.strategyId];
+
+        Utils.validateTransferTerms(
+            _terms,
+            strategy,
+            trufinOracle,
+            _parameters.oracleSignature
+        );
+
+        // Utils.ensureTransferApprovals(_parameters, strategy);
+    }
+
+    // function transfer(
+    //     TransferDataPackage calldata _transferDataPackage,
+    //     TransferParameters calldata _transferParameters,
+    //     bytes calldata _trufinOracleSignature,
+    //     bytes[] calldata _approverSignatures
+    // ) external {
+    //     Strategy storage strategy = strategies[_transferParameters.strategyId];
+
+    //     Utils.checkTransferApprovals(
+    //         _transferParameters,
+    //         strategy,
+    //         _approverSignatures
+    //     );
+
+    //     Utils.checkTransferDataPackage(
+    //         _transferDataPackage,
+    //         strategy,
+    //         trufinOracle,
+    //         _trufinOracleSignature
+    //     );
+
+    //     // collateralManager.executeTransfer();
+
+    //     // Increment strategy's action nonce to prevent replay using _signatures
+    //     strategy.actionNonce++;
+
+    //     // Update transferred strategy position
+    //     if (_transferParameters.alphaTransfer) {
+    //         strategy.alpha = _transferParameters.recipient;
+    //     } else {
+    //         strategy.omega = _transferParameters.recipient;
+    //     }
+    // }
 
     // *** LIQUIDATION ***
 
@@ -199,22 +239,21 @@ contract TFM is
 
     // Creates a new strategy and returns its ID
     function _createStrategy(
-        SpearmintDataPackage calldata _spearmintDataPackage,
-        SpearmintParameters calldata _spearmintParameters
+        SpearmintTerms calldata _terms,
+        SpearmintParameters calldata _parameters
     ) internal returns (uint256) {
         uint256 newStrategyId = strategyCounter++;
 
-        strategies[newStrategyId] = Strategy(
-            _spearmintParameters.transferable,
-            _spearmintDataPackage.bra,
-            _spearmintDataPackage.ket,
-            _spearmintDataPackage.basis,
-            _spearmintParameters.alpha,
-            _spearmintParameters.omega,
-            _spearmintDataPackage.expiry,
-            _spearmintDataPackage.amplitude,
-            _spearmintDataPackage.phase
-        );
+        // Check gas cost compared to Strategy(...) => this methods avoid writing actionNonce = 0
+        strategies[newStrategyId].transferable = _parameters.transferable;
+        strategies[newStrategyId].bra = _terms.bra;
+        strategies[newStrategyId].ket = _terms.ket;
+        strategies[newStrategyId].basis = _terms.basis;
+        strategies[newStrategyId].alpha = _parameters.alpha;
+        strategies[newStrategyId].omega = _parameters.omega;
+        strategies[newStrategyId].expiry = _terms.expiry;
+        strategies[newStrategyId].amplitude = _terms.amplitude;
+        strategies[newStrategyId].phase = _terms.phase;
 
         return newStrategyId;
     }
