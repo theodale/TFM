@@ -46,6 +46,9 @@ contract CollateralManager is
         require(msg.sender == tfm, "CollateralManager: TFM only");
         _;
     }
+    
+    /// *** ERRORS ***
+    error NoPersonalPool();
 
     // *** INITIALIZER ***
 
@@ -88,7 +91,7 @@ contract CollateralManager is
     function withdraw(address _basis, uint256 amount) external {
         unallocatedCollateral[msg.sender][_basis] -= amount;
 
-        address payable pool = _getOrCreatePersonalPool(msg.sender);
+        address payable pool = _getPersonalPool(msg.sender);
 
         PersonalPool(pool).transferERC20(_basis, msg.sender, amount);
 
@@ -108,9 +111,9 @@ contract CollateralManager is
         uint256 _omegaFee,
         int256 _premium
     ) external tfmOnly {
-        address payable alphaPool = _getOrCreatePersonalPool(_alpha);
-        address payable omegaPool = _getOrCreatePersonalPool(_omega);
-
+        address payable alphaPool = _getPersonalPool(_alpha);
+        address payable omegaPool = _getPersonalPool(_omega);
+        
         unallocatedCollateral[_alpha][_basis] -=
             _alphaCollateralRequirement +
             _alphaFee;
@@ -128,15 +131,17 @@ contract CollateralManager is
 
             unallocatedCollateral[_alpha][_basis] -= uint256(_premium);
             unallocatedCollateral[_omega][_basis] += uint256(_premium);
-        } else {
+        } 
+        else if(_premium<0) {
+            //@tiff convert premium into positive int? 
             PersonalPool(omegaPool).transferERC20(
                 _basis,
                 alphaPool,
-                uint256(_premium)
+                uint256(-_premium)
             );
 
-            unallocatedCollateral[_alpha][_basis] += uint256(_premium);
-            unallocatedCollateral[_omega][_basis] -= uint256(_premium);
+            unallocatedCollateral[_alpha][_basis] += uint256(-_premium);
+            unallocatedCollateral[_omega][_basis] -= uint256(-_premium);
         }
 
         // Allocate required collateral to the new strategy
@@ -215,7 +220,7 @@ contract CollateralManager is
     /// *** INTERNAL METHODS ***
 
     function _takeFee(address _user, address _basis, uint256 _fee) internal {
-        address payable pool = _getOrCreatePersonalPool(_user);
+        address payable pool = _getPersonalPool(_user);
 
         PersonalPool(pool).transferERC20(_basis, treasury, _fee);
     }
@@ -227,6 +232,26 @@ contract CollateralManager is
         if (personalPool == address(0)) {
             personalPool = payable(new PersonalPool());
             personalPools[_user] = personalPool;
+        }
+        return personalPool;
+    }
+
+ /**
+        @notice Function to get users personal pool 
+        @dev This function is used when a user must have a personal pool and therefore reverts if the personal pool address is zero
+        @param _user user to get the pool address for 
+        @return personal pool address
+
+    */
+    function _getPersonalPool(
+        address _user
+    ) internal returns (address payable) {
+        address payable personalPool = personalPools[_user];
+        assembly {
+        if iszero(personalPool) {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x51e9089f00000000000000000000000000000000000000000000000000000000) // selector for `NoPersonalPool()`
+            revert(ptr, 0x4)
         }
         return personalPool;
     }
