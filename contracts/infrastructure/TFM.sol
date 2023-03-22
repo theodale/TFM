@@ -65,6 +65,7 @@ contract TFM is
         __ReentrancyGuard_init();
         __Ownable_init();
         transferOwnership(_owner);
+        __UUPSUpgradeable_init();
 
         // Set relevant addresses & contracts
         liquidator = _liquidator;
