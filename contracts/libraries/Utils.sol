@@ -83,7 +83,10 @@ library Utils {
         );
     }
 
-    // function ensureTransferApprovals()
+    // function ensureTransferApprovals(
+    //     TransferParameters calldata _parameters,
+    //     Strategy storage _strategy
+    // ) external {}
 
     function validateTransferTerms(
         TransferTerms calldata _terms,
