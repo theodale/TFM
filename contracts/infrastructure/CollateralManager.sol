@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 
 import "../interfaces/ICollateralManager.sol";
 import "./PersonalPool.sol";
@@ -14,7 +16,8 @@ import "../misc/Types.sol";
 contract CollateralManager is
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
-    ICollateralManager
+    ICollateralManager,
+    UUPSUpgradeable
 {
     // *** LIBRARIES ***
 
@@ -57,6 +60,8 @@ contract CollateralManager is
         __ReentrancyGuard_init();
         __Ownable_init();
         transferOwnership(_owner);
+        __UUPSUpgradeable_init();
+
 
         treasury = _treasury;
     }
@@ -170,6 +175,7 @@ contract CollateralManager is
         return personalPool;
     }
 
+     function _authorizeUpgrade(address) internal override onlyOwner {}
     // function executeLiquidation(
     //     LiquidationParams calldata _liquidationParams,
     //     uint256 _strategyId,
