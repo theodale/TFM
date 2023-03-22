@@ -75,7 +75,7 @@ contract CollateralManager is
 
     // Deposit basis tokens into unallocated collateral balance
     function deposit(address _basis, uint256 amount) external {
-        address payable pool = _getOrCreatePersonalPool(msg.sender);
+        address payable pool = _getPersonalPool(msg.sender);
 
         IERC20(_basis).safeTransferFrom(msg.sender, pool, amount);
 
@@ -88,7 +88,7 @@ contract CollateralManager is
     function withdraw(address _basis, uint256 amount) external {
         unallocatedCollateral[msg.sender][_basis] -= amount;
 
-        address payable pool = _getOrCreatePersonalPool(msg.sender);
+        address payable pool = _getPersonalPool(msg.sender);
 
         PersonalPool(pool).transferERC20(_basis, msg.sender, amount);
 
@@ -108,8 +108,8 @@ contract CollateralManager is
         uint256 _omegaFee,
         int256 _premium
     ) external tfmOnly {
-        address payable alphaPool = _getOrCreatePersonalPool(_alpha);
-        address payable omegaPool = _getOrCreatePersonalPool(_omega);
+        address payable alphaPool = _getPersonalPool(_alpha);
+        address payable omegaPool = _getPersonalPool(_omega);
 
         unallocatedCollateral[_alpha][_basis] -=
             _alphaCollateralRequirement +
@@ -128,15 +128,15 @@ contract CollateralManager is
 
             unallocatedCollateral[_alpha][_basis] -= uint256(_premium);
             unallocatedCollateral[_omega][_basis] += uint256(_premium);
-        } else {
+        } else if (_premium < 0) {
             PersonalPool(omegaPool).transferERC20(
                 _basis,
                 alphaPool,
-                uint256(_premium)
+                uint256(-_premium)
             );
 
-            unallocatedCollateral[_alpha][_basis] += uint256(_premium);
-            unallocatedCollateral[_omega][_basis] -= uint256(_premium);
+            unallocatedCollateral[_alpha][_basis] += uint256(-_premium);
+            unallocatedCollateral[_omega][_basis] -= uint256(-_premium);
         }
 
         // Allocate required collateral to the new strategy
@@ -144,12 +144,30 @@ contract CollateralManager is
         allocatedCollateral[_omega][_strategyId] += _omegaCollateralRequirement;
 
         if (_alphaFee > 0) {
-            _takeFee(_alpha, _basis, _alphaFee);
+            PersonalPool(alphaPool).transferERC20(_basis, treasury, _alphaFee);
         }
 
         if (_omegaFee > 0) {
-            _takeFee(_omega, _basis, _omegaFee);
+            PersonalPool(omegaPool).transferERC20(_basis, treasury, _omegaFee);
         }
+    }
+
+    /// *** INTERNAL METHODS ***
+
+    // Possibly refactor in future => we may be able to assume that a personal pool already exists for the user in certain scenarios
+    function _getPersonalPool(
+        address _user
+    ) internal returns (address payable) {
+        address payable personalPool = personalPools[_user];
+
+        // Deploy new personal pool for user if they have not got one
+        if (personalPool == address(0)) {
+            personalPool = payable(new PersonalPool());
+
+            personalPools[_user] = personalPool;
+        }
+
+        return personalPool;
     }
 
     // function executeLiquidation(
@@ -211,23 +229,4 @@ contract CollateralManager is
     //     // Call new checkCollateralNonce method here
     //     checkCollateralNonce( _liquidationParams.collateralNonce);
     // }
-
-    /// *** INTERNAL METHODS ***
-
-    function _takeFee(address _user, address _basis, uint256 _fee) internal {
-        address payable pool = _getOrCreatePersonalPool(_user);
-
-        PersonalPool(pool).transferERC20(_basis, treasury, _fee);
-    }
-
-    function _getOrCreatePersonalPool(
-        address _user
-    ) internal returns (address payable) {
-        address payable personalPool = personalPools[_user];
-        if (personalPool == address(0)) {
-            personalPool = payable(new PersonalPool());
-            personalPools[_user] = personalPool;
-        }
-        return personalPool;
-    }
 }
