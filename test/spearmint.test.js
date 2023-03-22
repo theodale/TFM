@@ -45,6 +45,7 @@ describe("Spearmint", () => {
 describe("Alpha/Omega Signature Verification", () => {
   it("should validate correct Alpha/Omega signature", async () => {
       const sign = await signSpearmintParameters(this.alice,this.bob,res.trufinOracleSignature,this.alice.address,this.bob.address,1000,true,1)
+      console.log(sign.spearmintParameters)
       await this.utils.ensureSpearmintApprovals(sign.spearmintParameters,1)
   });
   

@@ -30,17 +30,17 @@ const signSpearmintParameters = async (
     ethers.utils.arrayify(hash)
   );
   const spearmintParameters = {
-    trufinOracleSignature: trufinOracleSignature,
+    oracleSignature: trufinOracleSignature,
     alpha: alphaAddress,
     omega: omegaAddress,
     alphaSignature: spearmintSignatureA,
-    omegaSignature:spearmintSignatureO,
+    omegaSignature: spearmintSignatureO,
     premium: premium,
     transferable: transferable,
     mintNonce: mintNonce,
   };
 
-  return { spearmintSignature, spearmintParameters };
+  return { spearmintSignatureA,spearmintSignatureO, spearmintParameters };
 };
 
 module.exports = {
