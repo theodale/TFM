@@ -61,7 +61,7 @@ const generateSpearmintTerms = async (
     phase: phase,
   };
 
-  return { trufinOracleSignature, spearmintTerms };
+  return { trufinOracleSignature,spearmintTerms,hash };
 };
 
 module.exports = {

@@ -32,15 +32,15 @@ const signSpearmintParameters = async (
   const spearmintParameters = {
     oracleSignature: trufinOracleSignature,
     alpha: alphaAddress,
-    omega: omegaAddress,
     alphaSignature: spearmintSignatureA,
+    omega: omegaAddress,
     omegaSignature: spearmintSignatureO,
     premium: premium,
     transferable: transferable,
     mintNonce: mintNonce,
   };
 
-  return { spearmintSignatureA,spearmintSignatureO, spearmintParameters };
+  return { spearmintSignatureA,spearmintSignatureO,spearmintParameters };
 };
 
 module.exports = {

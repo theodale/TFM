@@ -27,9 +27,11 @@ describe("Spearmint", () => {
   describe("Oracle Signature Verification", () => {
     it("should validate correct Oracle signature", async () => {
         await this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.owner.address)
+        //const t = await this.utils._isValidSignature(res.hash,res.trufinOracleSignature,this.owner.address)
+        //expect(t).to.be.true
     });
     
-    it("should revert with wrong signer", async () => {
+    it("should revert with wrong oracle", async () => {
       await expect(
         this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.alice.address)
       ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");    
@@ -45,9 +47,14 @@ describe("Spearmint", () => {
 describe("Alpha/Omega Signature Verification", () => {
   it("should validate correct Alpha/Omega signature", async () => {
       const sign = await signSpearmintParameters(this.alice,this.bob,res.trufinOracleSignature,this.alice.address,this.bob.address,1000,true,1)
-      console.log(sign.spearmintParameters)
       await this.utils.ensureSpearmintApprovals(sign.spearmintParameters,1)
   });
+  
+  it("should revert with wrong alpha", async () => {
+    const sign = await signSpearmintParameters(this.alice,this.bob,res.trufinOracleSignature,this.alice.address,this.bob.address,1000,true,1)
+    sign.spearmintParameters.alpha = this.owner.address 
+    await expect(this.utils.ensureSpearmintApprovals(sign.spearmintParameters,1)).to.be.revertedWith("Alpha signature invalid")
+});
   
 //   it("should revert with wrong signer", async () => {
 //     await expect(
