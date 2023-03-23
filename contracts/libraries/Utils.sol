@@ -20,7 +20,7 @@ library Utils {
     function ensureSpearmintApprovals(
         SpearmintParameters calldata _parameters,
         uint256 _mintNonce
-    ) external view returns(bool){
+    ) external view{
         bytes32 message = ECDSA.toEthSignedMessageHash(
             keccak256(
                 abi.encodePacked(
@@ -52,7 +52,6 @@ library Utils {
             ),
             "Omega signature invalid"
         );
-        return true;
     }
 
     function validateSpearmintTerms(

@@ -23,7 +23,7 @@ const spearmint = async (
 ) => {
   const oracleNonce = await TFM.oracleNonce();
 
-  const { trufinOracleSignature, spearMintTerms } =
+  const { trufinOracleSignature, spearMintTerms} =
     await generateSpearmintTerms(
       oracle,
       expiry,
@@ -38,12 +38,11 @@ const spearmint = async (
       amplitude,
       phase
     );
-
   const mintNonce = await TFM.getMintNonce(alpha.address, omega.address);
-
-  const { spearmintSignature: alphaSignature, spearmintParameters } =
+  const {alphaSignature, omegaSignature, spearmintParameters } =
     await signSpearmintParameters(
       alpha,
+      omega,
       trufinOracleSignature,
       alpha.address,
       omega.address,
@@ -52,26 +51,15 @@ const spearmint = async (
       mintNonce
     );
 
-  const { spearmintSignature: omegaSignature } = await signSpearmintParameters(
-    omega,
-    trufinOracleSignature,
-    alpha.address,
-    omega.address,
-    premium,
-    transferable,
-    mintNonce
-  );
 
   const strategyId = await TFM.strategyCounter();
-
+  
   await TFM.spearmint(
     spearMintTerms,
-    spearmintParameters,
-    alphaSignature,
-    omegaSignature
+    spearmintParameters
   );
 
-  return strategyId;
+  return strategyId+1;
 };
 
 module.exports = {

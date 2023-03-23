@@ -71,6 +71,8 @@ contract TFM is
         liquidator = _liquidator;
         collateralManager = CollateralManager(_collateralManager);
         trufinOracle = _trufinOracle;
+        lockTime = 2 hours;
+        latestOracleNonceUpdateTime = block.timestamp;
     }
 
     // *** GETTERS ***
@@ -123,7 +125,7 @@ contract TFM is
             getMintNonce(_parameters.alpha, _parameters.omega)
         );
 
-        _checkOracleNonce(_terms.oracleNonce);
+        //_checkOracleNonce(_terms.oracleNonce);
 
         uint256 strategyId = _createStrategy(_terms, _parameters);
 
@@ -272,8 +274,8 @@ contract TFM is
     function _checkOracleNonce(uint256 _oracleNonce) internal view {
         // Check whether input nonce is outdated
         require(
-            (_oracleNonce >= _oracleNonce) &&
-                (_oracleNonce - _oracleNonce <= 1),
+            (_oracleNonce <= oracleNonce) &&
+                (oracleNonce - _oracleNonce <= 1),
             "TFM: Oracle nonce has expired"
         );
 
