@@ -8,4 +8,6 @@ interface ITFM {
     event Initialization();
 
     event Spearmint(uint256 strategyId);
+
+    event Transfer(uint256 strategyId);
 }
