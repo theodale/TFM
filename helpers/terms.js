@@ -14,7 +14,6 @@ const generateSpearmintTerms = async (
   amplitude,
   phase
 ) => {
-  
   const hash = ethers.utils.solidityKeccak256(
     [
       "uint256",
@@ -36,9 +35,9 @@ const generateSpearmintTerms = async (
       alphaFee,
       omegaFee,
       oracleNonce,
-      bra,
-      ket,
-      basis,
+      bra.address,
+      ket.address,
+      basis.address,
       amplitude,
       phase,
     ]
@@ -55,14 +54,14 @@ const generateSpearmintTerms = async (
     alphaFee: alphaFee,
     omegaFee: omegaFee,
     oracleNonce: oracleNonce,
-    bra: bra,
-    ket: ket,
-    basis: basis,
+    bra: bra.address,
+    ket: ket.address,
+    basis: basis.address,
     amplitude: amplitude,
     phase: phase,
   };
 
-  return { trufinOracleSignature,spearMintTerms,hash };
+  return { trufinOracleSignature, spearMintTerms };
 };
 
 module.exports = {

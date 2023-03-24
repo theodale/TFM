@@ -98,6 +98,16 @@ struct CombinationParameters {
     bytes oracleSignature;
 }
 
+struct ExerciseTerms {
+    int256 payout;
+    uint256 oracleNonce;
+}
+
+struct ExerciseParameters {
+    bytes oracleSignature;
+    uint256 strategyId;
+}
+
 // struct LiquidationParams {
 //     uint256 collateralNonce;
 //     // The amount of basis transferred from omega to alpha as compensation for any value loss they experience due to amplitude reduction

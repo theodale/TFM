@@ -234,6 +234,31 @@ library Utils {
         );
     }
 
+    // EXERCISE
+
+    function validateExerciseTerms(
+        ExerciseTerms calldata _terms,
+        Strategy storage _strategy,
+        address _trufinOracle,
+        bytes calldata _trufinOracleSignature
+    ) external view {
+        bytes memory message = abi.encodePacked(
+            _strategy.expiry,
+            _strategy.bra,
+            _strategy.ket,
+            _strategy.basis,
+            _strategy.amplitude,
+            _strategy.phase,
+            _terms.oracleNonce,
+            _terms.payout
+        );
+
+        require(
+            _isValidSignature(message, _trufinOracleSignature, _trufinOracle),
+            "EXERCISE: Invalid Trufin oracle signature"
+        );
+    }
+
     // Could inline this if not reused
     function _getAlignement(
         Strategy storage _strategyOne,

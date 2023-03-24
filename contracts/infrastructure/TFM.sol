@@ -116,7 +116,7 @@ contract TFM is
     function spearmint(
         SpearmintTerms calldata _terms,
         SpearmintParameters calldata _parameters
-    ) external{
+    ) external {
         Utils.validateSpearmintTerms(
             _terms,
             _parameters.oracleSignature,
@@ -143,7 +143,7 @@ contract TFM is
             _terms.omegaFee,
             _parameters.premium
         );
-        
+
         _incrementMintNonce(_parameters.alpha, _parameters.omega);
         emit Spearmint(strategyId);
     }
@@ -273,16 +273,31 @@ contract TFM is
         emit OracleNonceUpdated(_oracleNonce);
     }
 
-    // function _deleteStrategy => also deletes shit on CollateralManager
+    // function _deleteStrategy => also deletes state on CollateralManager?
 
-    struct ExerciseTerms {
-        uint256 payout;
-        // uint256 oracleNonce; How does in work for oracle nonce on trufin_v2?
-    }
+    // Call to finalise a position on a strategy
+    // Unallocates collateral not used for a payout
+    function exercise(
+        ExerciseTerms calldata _terms,
+        ExerciseParameters calldata _parameters
+    ) external {
+        // Check oracle nonce
+        _checkOracleNonce(_terms.oracleNonce);
 
-    // Alpha and omega both call
-    function exercise(uint256 strategyId) external {
-        //
+        Strategy storage strategy = strategies[_parameters.strategyId];
+
+        Utils.validateExerciseTerms(
+            _terms,
+            strategy,
+            trufinOracle,
+            _parameters.oracleSignature
+        );
+
+        // if (msg.sender == strategy.alpha) {} else if (
+
+        // ) {} else if (msg.sender == strategy.omega) {
+
+        // }
     }
 
     // *** LIQUIDATION ***
@@ -345,7 +360,6 @@ contract TFM is
     function _incrementMintNonce(address partyOne, address partyTwo) private {
         if (partyOne < partyTwo) {
             mintNonce[partyOne][partyTwo]++;
-
         } else {
             mintNonce[partyTwo][partyOne]++;
         }
@@ -355,8 +369,7 @@ contract TFM is
     function _checkOracleNonce(uint256 _oracleNonce) internal view {
         // Check whether input nonce is outdated
         require(
-            (_oracleNonce <= oracleNonce) &&
-                (oracleNonce - _oracleNonce <= 1),
+            (_oracleNonce <= oracleNonce) && (oracleNonce - _oracleNonce <= 1),
             "TFM: Oracle nonce has expired"
         );
 

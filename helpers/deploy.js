@@ -1,6 +1,6 @@
 const { ethers, upgrades } = require("hardhat");
 
-const deploy = async (owner) => {
+const testDeploy = async (owner) => {
   // Deploy Utils library
   const UtilsFactory = await ethers.getContractFactory("Utils");
   const Utils = await UtilsFactory.deploy();
@@ -36,16 +36,21 @@ const deploy = async (owner) => {
   await CollateralManager.setTFM(TFM.address);
 
   const MockERC20Factory = await ethers.getContractFactory("MockERC20");
-  const MockERC20 = await MockERC20Factory.deploy();
+
+  const BRA = await MockERC20Factory.deploy();
+  const KET = await MockERC20Factory.deploy();
+  const Basis = await MockERC20Factory.deploy();
 
   return {
     TFM,
     CollateralManager,
-    MockERC20,
+    BRA,
+    KET,
+    Basis,
     Utils,
   };
 };
 
 module.exports = {
-  deploy,
+  testDeploy,
 };
