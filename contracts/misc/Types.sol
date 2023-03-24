@@ -2,6 +2,7 @@
 
 pragma solidity =0.8.14;
 
+// Do we need this?
 enum Action {
     MINT,
     TRANSFER,
@@ -73,6 +74,28 @@ struct TransferParameters {
     bytes recipientSignature;
     // Not used if the strategy is transferable
     bytes staticPartySignature;
+}
+
+// COMBINATION
+
+struct CombinationTerms {
+    uint256 strategyOneAlphaFee;
+    uint256 strategyOneOmegaFee;
+    uint256 resultingAlphaCollateralRequirement;
+    uint256 resultingOmegaCollateralRequirement;
+    int256 resultingAmplitude;
+    int[2][] resultingPhase;
+    uint256 oracleNonce;
+    // Indicates if the combination terms are for target strategies with same (true) or opposite (false) alpha and omegas
+    bool aligned;
+}
+
+struct CombinationParameters {
+    uint256 strategyOneId;
+    uint256 strategyTwoId;
+    bytes strategyOneAlphaSignature;
+    bytes strategyOneOmegaSignature;
+    bytes oracleSignature;
 }
 
 // struct LiquidationParams {

@@ -10,4 +10,6 @@ interface ITFM {
     event Spearmint(uint256 strategyId);
 
     event Transfer(uint256 strategyId);
+
+    event OracleNonceUpdated(uint256 oracleNonce);
 }

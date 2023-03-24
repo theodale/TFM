@@ -13,6 +13,8 @@ import "../interfaces/ITFM.sol";
 
 import "hardhat/console.sol";
 
+// ******************** THE FIELD MACHINE ********************
+// A peer-to-peer options trading base layer
 contract TFM is
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
@@ -41,7 +43,7 @@ contract TFM is
     // Mapts strategy ID => strategy
     mapping(uint256 => Strategy) internal strategies;
 
-    // Stores next strategy ID
+    // Stores ID of the next strategy to be minted
     uint256 public strategyCounter;
 
     // Address permitted to perform liquidations
@@ -197,7 +199,91 @@ contract TFM is
         emit Transfer(_parameters.strategyId);
     }
 
-    function combine() external {}
+    // Combine two strategies into one
+    function combine(
+        CombinationTerms calldata _terms,
+        CombinationParameters calldata _parameters
+    ) external {
+        Strategy storage strategyOne = strategies[_parameters.strategyOneId];
+        Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
+
+        _checkOracleNonce(_terms.oracleNonce);
+
+        Utils.checkCombinationApprovals(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            strategyOne,
+            strategyTwo,
+            _parameters.strategyOneAlphaSignature,
+            _parameters.strategyOneOmegaSignature,
+            _parameters.oracleSignature
+        );
+
+        Utils.validateCombinationTerms(
+            _terms,
+            strategyOne,
+            strategyTwo,
+            trufinOracle,
+            _parameters.oracleSignature
+        );
+
+        collateralManager.executeCombination(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            strategyOne.alpha,
+            strategyOne.omega,
+            strategyOne.basis,
+            _terms.resultingAlphaCollateralRequirement,
+            _terms.resultingOmegaCollateralRequirement,
+            _terms.strategyOneAlphaFee,
+            _terms.strategyOneOmegaFee
+        );
+
+        // We delete strategy two and overwrite strategy one into the new combined strategy
+        // This combined strategy has strategy one's alpha and omega  => resutling amplitude/collateral requirements/fees signed for this direction
+
+        // Minamally alter strategy one to combimed form
+        strategyOne.phase = _terms.resultingPhase;
+        strategyOne.amplitude = _terms.resultingAmplitude;
+
+        // Delete strategy two
+        delete strategies[_parameters.strategyTwoId];
+    }
+
+    function updateOracleNonce(
+        uint256 _oracleNonce,
+        bytes calldata _oracleSignature
+    ) external {
+        // Prevents replay of out-of-date signatures
+        require(
+            _oracleNonce > oracleNonce,
+            "TFM: Oracle nonce can only be increased"
+        );
+
+        Utils.validateOracleNonceUpdate(
+            _oracleNonce,
+            _oracleSignature,
+            trufinOracle
+        );
+
+        // Perform state update
+        oracleNonce = _oracleNonce;
+        latestOracleNonceUpdateTime = block.timestamp;
+
+        emit OracleNonceUpdated(_oracleNonce);
+    }
+
+    // function _deleteStrategy => also deletes shit on CollateralManager
+
+    struct ExerciseTerms {
+        uint256 payout;
+        // uint256 oracleNonce; How does in work for oracle nonce on trufin_v2?
+    }
+
+    // Alpha and omega both call
+    function exercise(uint256 strategyId) external {
+        //
+    }
 
     // *** LIQUIDATION ***
 
