@@ -71,7 +71,7 @@ contract CollateralManager is
         treasury = _treasury;
     }
 
-    /// *** USER COLLATERAL MANAGEMENT ***
+    // *** USER COLLATERAL MANAGEMENT ***
 
     // Deposit basis tokens into unallocated collateral balance
     function deposit(address _basis, uint256 amount) external {
@@ -88,9 +88,7 @@ contract CollateralManager is
     function withdraw(address _basis, uint256 amount) external {
         unallocatedCollateral[msg.sender][_basis] -= amount;
 
-        address payable pool = _getPersonalPool(msg.sender);
-
-        PersonalPool(pool).transferERC20(_basis, msg.sender, amount);
+        _transferFromUsersPool(msg.sender, _basis, msg.sender, amount);
 
         emit Withdrawal(msg.sender, _basis, amount);
     }
@@ -133,11 +131,11 @@ contract CollateralManager is
         allocatedCollateral[_omega][_strategyId] += _omegaCollateralRequirement;
 
         if (_alphaFee > 0) {
-            PersonalPool(alphaPool).transferERC20(_basis, treasury, _alphaFee);
+            _transferFromPersonalPool(alphaPool, _basis, treasury, _alphaFee);
         }
 
         if (_omegaFee > 0) {
-            PersonalPool(omegaPool).transferERC20(_basis, treasury, _omegaFee);
+            _transferFromPersonalPool(omegaPool, _basis, treasury, _omegaFee);
         }
     }
 
@@ -182,8 +180,9 @@ contract CollateralManager is
         unallocatedCollateral[_recipient][_basis] -= _recipientFee;
 
         // Transfer fees to treasury
-        PersonalPool(senderPool).transferERC20(_basis, treasury, _senderFee);
-        PersonalPool(recipientPool).transferERC20(
+        _transferFromPersonalPool(senderPool, _basis, treasury, _senderFee);
+        _transferFromPersonalPool(
+            recipientPool,
             _basis,
             treasury,
             _recipientFee
@@ -192,72 +191,62 @@ contract CollateralManager is
 
     // Aligned is not needed => as allocated maps user address => strategy ID => amount of tokens
     function executeCombination(
-        ExecuteCombinationParams calldata _params
+        uint256 _strategyOneId,
+        uint256 _strategyTwoId,
+        address _strategyOneAlpha,
+        address _strategyOneOmega,
+        address _basis,
+        uint256 _resultingAlphaCollateralRequirement,
+        uint256 _resultingOmegaCollateralRequirement,
+        uint256 _strategyOneAlphaFee,
+        uint256 _strategyOneOmegaFee
     ) external tfmOnly {
+        // Get each combiners available collateral for their position on the combined strategy
         uint256 availableStrategyOneAlpha = unallocatedCollateral[
-            _params.strategyOneAlpha
-        ][_params.basis] +
-            allocatedCollateral[_params.strategyOneAlpha][
-                _params.strategyOneId
-            ] +
-            allocatedCollateral[_params.strategyOneAlpha][
-                _params.strategyTwoId
-            ];
-
+            _strategyOneAlpha
+        ][_basis] +
+            allocatedCollateral[_strategyOneAlpha][_strategyOneId] +
+            allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
         uint256 availableStrategyOneOmega = unallocatedCollateral[
-            _params.strategyOneOmega
-        ][_params.basis] +
-            allocatedCollateral[_params.strategyOneOmega][
-                _params.strategyOneId
-            ] +
-            allocatedCollateral[_params.strategyOneOmega][
-                _params.strategyTwoId
-            ];
+            _strategyOneOmega
+        ][_basis] +
+            allocatedCollateral[_strategyOneOmega][_strategyOneId] +
+            allocatedCollateral[_strategyOneOmega][_strategyTwoId];
 
         // Set strategy one allocations
-        allocatedCollateral[_params.strategyOneAlpha][
-            _params.strategyOneId
-        ] = _params.resultingAlphaCollateralRequirement;
-        allocatedCollateral[_params.strategyOneOmega][
-            _params.strategyTwoId
-        ] = _params.resultingOmegaCollateralRequirement;
+        allocatedCollateral[_strategyOneAlpha][
+            _strategyOneId
+        ] = _resultingAlphaCollateralRequirement;
+        allocatedCollateral[_strategyOneOmega][
+            _strategyTwoId
+        ] = _resultingOmegaCollateralRequirement;
 
         // Set unallocated collateral
-        unallocatedCollateral[_params.strategyOneAlpha][_params.basis] =
+        unallocatedCollateral[_strategyOneAlpha][_basis] =
             availableStrategyOneAlpha -
-            _params.resultingAlphaCollateralRequirement -
-            _params.strategyOneAlphaFee;
-        unallocatedCollateral[_params.strategyOneOmega][_params.basis] =
+            _resultingAlphaCollateralRequirement -
+            _strategyOneAlphaFee;
+        unallocatedCollateral[_strategyOneOmega][_basis] =
             availableStrategyOneOmega -
-            _params.resultingOmegaCollateralRequirement -
-            _params.strategyOneOmegaFee;
+            _resultingOmegaCollateralRequirement -
+            _strategyOneOmegaFee;
 
-        address payable strategyOneAlphaPool = _getPersonalPool(
-            _params.strategyOneAlpha
-        );
-        address payable strategyOneOmegaPool = _getPersonalPool(
-            _params.strategyOneOmega
-        );
-
-        // Take fee
-        PersonalPool(strategyOneAlphaPool).transferERC20(
-            _params.basis,
+        _transferFromUsersPool(
+            _strategyOneAlpha,
+            _basis,
             treasury,
-            _params.strategyOneAlphaFee
-        );
-        PersonalPool(strategyOneOmegaPool).transferERC20(
-            _params.basis,
-            treasury,
-            _params.strategyOneOmegaFee
+            _strategyOneAlphaFee
         );
 
-        // Delete strategy two state => any more strategy?
-        delete allocatedCollateral[_params.strategyOneAlpha][
-            _params.strategyTwoId
-        ];
-        delete allocatedCollateral[_params.strategyOneOmega][
-            _params.strategyTwoId
-        ];
+        _transferFromUsersPool(
+            _strategyOneOmega,
+            _basis,
+            treasury,
+            _strategyOneOmegaFee
+        );
+
+        delete allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
+        delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
 
     /// *** INTERNAL METHODS ***
@@ -276,6 +265,28 @@ contract CollateralManager is
         }
 
         return personalPool;
+    }
+
+    // Transfers ERC20 tokens from an input personal pool to a recipient
+    function _transferFromPersonalPool(
+        address payable _pool,
+        address _token,
+        address _recipient,
+        uint256 _amount
+    ) internal {
+        PersonalPool(_pool).transferERC20(_token, _recipient, _amount);
+    }
+
+    // Transfers ERC20 tokens from a user's personal pool to a recipient
+    function _transferFromUsersPool(
+        address _user,
+        address _token,
+        address _recipient,
+        uint256 _amount
+    ) internal {
+        address payable pool = _getPersonalPool(_user);
+
+        PersonalPool(pool).transferERC20(_token, _recipient, _amount);
     }
 
     // Execute a premium transfer between two parties

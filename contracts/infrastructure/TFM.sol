@@ -226,22 +226,17 @@ contract TFM is
             _parameters.oracleSignature
         );
 
-        ExecuteCombinationParams
-            memory executeCombinationParams = ExecuteCombinationParams(
-                _parameters.strategyOneId,
-                _parameters.strategyTwoId,
-                strategyOne.alpha,
-                strategyOne.omega,
-                strategyTwo.alpha,
-                strategyTwo.omega,
-                strategyOne.basis,
-                _terms.resultingAlphaCollateralRequirement,
-                _terms.resultingOmegaCollateralRequirement,
-                _terms.strategyOneAlphaFee,
-                _terms.strategyOneOmegaFee
-            );
-
-        collateralManager.executeCombination(executeCombinationParams);
+        collateralManager.executeCombination(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            strategyOne.alpha,
+            strategyOne.omega,
+            strategyOne.basis,
+            _terms.resultingAlphaCollateralRequirement,
+            _terms.resultingOmegaCollateralRequirement,
+            _terms.strategyOneAlphaFee,
+            _terms.strategyOneOmegaFee
+        );
 
         // We delete strategy two and overwrite strategy one into the new combined strategy
         // This combined strategy has strategy one's alpha and omega  => resutling amplitude/collateral requirements/fees signed for this direction
@@ -278,6 +273,16 @@ contract TFM is
     }
 
     // function _deleteStrategy => also deletes shit on CollateralManager
+
+    struct ExerciseTerms {
+        uint256 payout;
+        // uint256 oracleNonce; How does in work for oracle nonce on trufin_v2?
+    }
+
+    // Alpha and omega both call
+    function exercise(uint256 strategyId) external {
+        //
+    }
 
     // *** LIQUIDATION ***
 
