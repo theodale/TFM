@@ -40,7 +40,12 @@ const signSpearmintParameters = async (
     mintNonce: mintNonce,
   };
 
-  return { spearmintSignatureA,spearmintSignatureO,spearmintParameters };
+  return {
+    spearmintSignatureA,
+    spearmintSignatureO,
+    spearmintParameters,
+    hash,
+  };
 };
 
 module.exports = {

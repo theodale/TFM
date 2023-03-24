@@ -114,7 +114,7 @@ contract TFM is
     function spearmint(
         SpearmintTerms calldata _terms,
         SpearmintParameters calldata _parameters
-    ) external {
+    ) external{
         Utils.validateSpearmintTerms(
             _terms,
             _parameters.oracleSignature,
@@ -126,7 +126,7 @@ contract TFM is
             getMintNonce(_parameters.alpha, _parameters.omega)
         );
 
-        //_checkOracleNonce(_terms.oracleNonce);
+        _checkOracleNonce(_terms.oracleNonce);
 
         uint256 strategyId = _createStrategy(_terms, _parameters);
 
@@ -141,9 +141,8 @@ contract TFM is
             _terms.omegaFee,
             _parameters.premium
         );
-
+        
         _incrementMintNonce(_parameters.alpha, _parameters.omega);
-
         emit Spearmint(strategyId);
     }
 
@@ -257,9 +256,10 @@ contract TFM is
     }
 
     // Internal method that updates a pairs mint nonce
-    function _incrementMintNonce(address partyOne, address partyTwo) internal {
+    function _incrementMintNonce(address partyOne, address partyTwo) private {
         if (partyOne < partyTwo) {
             mintNonce[partyOne][partyTwo]++;
+
         } else {
             mintNonce[partyTwo][partyOne]++;
         }

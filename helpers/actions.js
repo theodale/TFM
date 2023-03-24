@@ -50,16 +50,12 @@ const spearmint = async (
       transferable,
       mintNonce
     );
-
-
   const strategyId = await TFM.strategyCounter();
-  
   await TFM.spearmint(
     spearMintTerms,
     spearmintParameters
   );
-
-  return strategyId+1;
+  return strategyId
 };
 
 module.exports = {
