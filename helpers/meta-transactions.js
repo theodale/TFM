@@ -1,30 +1,5 @@
 const { ethers } = require("hardhat");
 
-// struct SpearmintTerms {
-//   uint256 expiry;
-//   uint256 alphaCollateralRequirement;
-//   uint256 omegaCollateralRequirement;
-//   uint256 alphaFee;
-//   uint256 omegaFee;
-//   uint256 oracleNonce;
-//   address bra;
-//   address ket;
-//   address basis;
-//   int256 amplitude;
-//   int256[2][] phase;
-// }
-
-// struct SpearmintParameters {
-//   // Links to a specific set of spearmint terms
-//   bytes oracleSignature;
-//   address alpha;
-//   bytes alphaSignature;
-//   address omega;
-//   bytes omegaSignature;
-//   int256 premium;
-//   bool transferable;
-// }
-
 const signSpearmintParameters = async (
   alpha,
   omega,
@@ -60,11 +35,7 @@ const signSpearmintParameters = async (
     transferable: transferable,
   };
 
-  return {
-    alphaSignature,
-    omegaSignature,
-    spearmintParameters,
-  };
+  return spearmintParameters;
 };
 
 module.exports = {

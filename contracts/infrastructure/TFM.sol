@@ -132,7 +132,7 @@ contract TFM is
 
         uint256 strategyId = _createStrategy(_terms, _parameters);
 
-        collateralManager.executeSpearmint(
+        collateralManager.spearmint(
             strategyId,
             _parameters.alpha,
             _parameters.omega,
@@ -175,7 +175,7 @@ contract TFM is
 
         _checkOracleNonce(_terms.oracleNonce);
 
-        collateralManager.executeTransfer(
+        collateralManager.transfer(
             _parameters.strategyId,
             sender,
             _parameters.recipient,
@@ -227,7 +227,7 @@ contract TFM is
             _parameters.oracleSignature
         );
 
-        collateralManager.executeCombination(
+        collateralManager.combine(
             _parameters.strategyOneId,
             _parameters.strategyTwoId,
             strategyOne.alpha,
@@ -247,7 +247,40 @@ contract TFM is
         strategyOne.amplitude = _terms.resultingAmplitude;
 
         // Delete strategy two
-        delete strategies[_parameters.strategyTwoId];
+        _deleteStrategy(_parameters.strategyTwoId);
+    }
+
+    // Call to finalise a position on a strategy
+    // Unallocates collateral not used for a payout
+    // No alpha/omega split like in trufin_v2
+    function exercise(
+        ExerciseTerms calldata _terms,
+        ExerciseParameters calldata _parameters
+    ) external {
+        _checkOracleNonce(_terms.oracleNonce);
+
+        Strategy storage strategy = strategies[_parameters.strategyId];
+
+        Utils.validateExerciseTerms(
+            _terms,
+            strategy,
+            trufinOracle,
+            _parameters.oracleSignature
+        );
+
+        collateralManager.exercise(
+            _parameters.strategyId,
+            strategy.alpha,
+            strategy.omega,
+            strategy.basis,
+            _terms.payout,
+            _terms.alphaFee,
+            _terms.omegaFee
+        );
+
+        delete strategies[_parameters.strategyId];
+
+        emit Exercise(_parameters.strategyId);
     }
 
     function updateOracleNonce(
@@ -271,33 +304,6 @@ contract TFM is
         latestOracleNonceUpdateTime = block.timestamp;
 
         emit OracleNonceUpdated(_oracleNonce);
-    }
-
-    // function _deleteStrategy => also deletes state on CollateralManager?
-
-    // Call to finalise a position on a strategy
-    // Unallocates collateral not used for a payout
-    function exercise(
-        ExerciseTerms calldata _terms,
-        ExerciseParameters calldata _parameters
-    ) external {
-        // Check oracle nonce
-        _checkOracleNonce(_terms.oracleNonce);
-
-        Strategy storage strategy = strategies[_parameters.strategyId];
-
-        Utils.validateExerciseTerms(
-            _terms,
-            strategy,
-            trufinOracle,
-            _parameters.oracleSignature
-        );
-
-        // if (msg.sender == strategy.alpha) {} else if (
-
-        // ) {} else if (msg.sender == strategy.omega) {
-
-        // }
     }
 
     // *** LIQUIDATION ***
@@ -378,6 +384,11 @@ contract TFM is
             (block.timestamp < latestOracleNonceUpdateTime + lockTime),
             "TFM: Contract locked due as oracle nonce has not been updated"
         );
+    }
+
+    function _deleteStrategy(uint256 _strategyId) internal {
+        // Also delete CM state
+        delete strategies[_strategyId];
     }
 
     // Upgrade authorization

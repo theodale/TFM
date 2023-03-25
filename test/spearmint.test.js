@@ -40,7 +40,9 @@ describe("SPEARMINT", () => {
     this.alphaFee = ethers.utils.parseEther("0.01");
     this.omegaFee = ethers.utils.parseEther("0.01");
     this.amplitude = ethers.utils.parseEther("10");
-    this.phase = [[ethers.utils.parseEther("1"), 50000]];
+    this.phase = [
+      [ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")],
+    ];
     this.premium = ethers.utils.parseEther("0.01");
     this.transferable = true;
 
@@ -94,7 +96,7 @@ describe("SPEARMINT", () => {
       expect(strategy.ket).to.equal(this.KET.address);
       expect(strategy.basis).to.equal(this.Basis.address);
       expect(strategy.actionNonce).to.equal(0);
-      // Check phase by casting in BigNumber
+      expect(strategy.phase).to.deep.equal(this.phase);
 
       // Collateral Manager State
       expect(

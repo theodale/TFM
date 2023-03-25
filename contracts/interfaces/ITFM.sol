@@ -11,5 +11,9 @@ interface ITFM {
 
     event Transfer(uint256 strategyId);
 
+    event Withdraw(uint256 strategyId);
+
+    event Exercise(uint256 strategyId);
+
     event OracleNonceUpdated(uint256 oracleNonce);
 }

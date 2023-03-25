@@ -250,6 +250,8 @@ library Utils {
             _strategy.amplitude,
             _strategy.phase,
             _terms.oracleNonce,
+            _terms.alphaFee,
+            _terms.omegaFee,
             _terms.payout
         );
 

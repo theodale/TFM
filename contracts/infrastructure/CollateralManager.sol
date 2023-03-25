@@ -98,7 +98,7 @@ contract CollateralManager is
 
     // *** TFM COLLATERAL METHODS ***
 
-    function executeSpearmint(
+    function spearmint(
         uint256 _strategyId,
         address _alpha,
         address _omega,
@@ -142,7 +142,7 @@ contract CollateralManager is
         }
     }
 
-    function executeTransfer(
+    function transfer(
         uint256 _strategyId,
         address _sender,
         address _recipient,
@@ -193,7 +193,7 @@ contract CollateralManager is
     }
 
     // Aligned is not needed => as allocated maps user address => strategy ID => amount of tokens
-    function executeCombination(
+    function combine(
         uint256 _strategyOneId,
         uint256 _strategyTwoId,
         address _strategyOneAlpha,
@@ -252,6 +252,45 @@ contract CollateralManager is
         delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
 
+    function exercise(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        address _basis,
+        int256 _payout,
+        uint256 _alphaFee,
+        uint256 _omegaFee
+    ) external tfmOnly {
+        // Transfer payout and unallocate all remaining collateral
+        if (_payout > 0) {
+            unallocatedCollateral[_alpha][_basis] =
+                allocatedCollateral[_alpha][_strategyId] -
+                uint256(_payout);
+            unallocatedCollateral[_omega][_basis] +=
+                uint256(_payout) +
+                allocatedCollateral[_omega][_strategyId];
+        } else {
+            unallocatedCollateral[_alpha][_basis] +=
+                uint256(_payout) +
+                allocatedCollateral[_alpha][_strategyId];
+            unallocatedCollateral[_omega][_basis] =
+                allocatedCollateral[_omega][_strategyId] -
+                uint256(_payout);
+        }
+
+        // address alphaPool = _getPersonalPool();
+
+        // Take fees
+        unallocatedCollateral[_alpha][_basis] -= _alphaFee;
+        unallocatedCollateral[_omega][_basis] -= _omegaFee;
+
+        // Still need to transfer premium and fees from user pools
+
+        // Delete state to add gas reduction
+        allocatedCollateral[_alpha][_strategyId] = 0;
+        allocatedCollateral[_omega][_strategyId] = 0;
+    }
+
     /// *** INTERNAL METHODS ***
 
     // Possibly refactor in future => we may be able to assume that a personal pool already exists for the user in certain scenarios
@@ -290,6 +329,12 @@ contract CollateralManager is
         address payable pool = _getPersonalPool(_user);
 
         PersonalPool(pool).transferERC20(_token, _recipient, _amount);
+    }
+
+    function _takeFee(address _user, address _token, uint256 _fee) internal {
+        unallocatedCollateral[_user][_token] -= _fee;
+
+        _transferFromUsersPool(_user, _token, treasury, _fee);
     }
 
     // Execute a premium transfer between two parties
