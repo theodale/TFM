@@ -28,7 +28,7 @@ const spearmint = async (
     CollateralManager,
     basis,
     alpha,
-    alphaCollateralRequirement.add(alphaFee)
+    alphaCollateralRequirement.add(alphaFee).add(premium)
   );
   await mintAndDeposit(
     CollateralManager,

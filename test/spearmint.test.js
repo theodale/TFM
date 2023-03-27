@@ -6,15 +6,14 @@ const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { zeroState, depositState } = require("../helpers/utils.js");
 const { PANIC_CODES } = require("@nomicfoundation/hardhat-chai-matchers/panic");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
-
+const { constants } = require("./constants.js");
 describe("SPEARMINT", () => {
   // @theo REVIEW:
   // - More spacing between blocks of code to improve readability
   // - Add comments, but no need to go overboard
   // - Use the this. pattern to assign test variables instead of let. E.g. see `TEST PARAMETERS`
 
-  const { SPEARMINT_TEST_PARAMETERS } = require("../helpers/constants.js");
-
+  this.SPEARMINT_TEST_PARAMETERS = constants()
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -35,38 +34,40 @@ describe("SPEARMINT", () => {
       this.strategyId = await spearmint(
         this.alice,
         this.bob,
-        this.premium,
-        this.transferable,
+        this.SPEARMINT_TEST_PARAMETERS.premium,
+        this.SPEARMINT_TEST_PARAMETERS.transferable,
         this.TFM,
         this.CollateralManager,
         this.owner,
-        this.expiry,
+        this.SPEARMINT_TEST_PARAMETERS.expiry,
         this.BRA,
         this.KET,
         this.Basis,
-        this.amplitude,
-        this.phase,
-        this.alphaCollateralRequirement,
-        this.omegaCollateralRequirement,
-        this.alphaFee,
-        this.omegaFee
+        this.SPEARMINT_TEST_PARAMETERS.amplitude,
+        this.SPEARMINT_TEST_PARAMETERS.phase,
+        this.SPEARMINT_TEST_PARAMETERS.alphaCollateralRequirement,
+        this.SPEARMINT_TEST_PARAMETERS.omegaCollateralRequirement,
+        this.SPEARMINT_TEST_PARAMETERS.alphaFee,
+        this.SPEARMINT_TEST_PARAMETERS.omegaFee
       );
+      this.alphaDeposit = this.SPEARMINT_TEST_PARAMETERS.alphaCollateralRequirement.add(this.SPEARMINT_TEST_PARAMETERS.alphaFee).add(this.SPEARMINT_TEST_PARAMETERS.premium)
+      this.omegaDeposit = this.SPEARMINT_TEST_PARAMETERS.omegaCollateralRequirement.add(this.SPEARMINT_TEST_PARAMETERS.omegaFee)
+
     });
 
     it("correct state post mint", async () => {
       const strategy = await this.TFM.getStrategy(this.strategyId);
-
       // Strategy state
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);
-      expect(strategy.transferable).to.equal(this.transferable);
-      expect(strategy.expiry).to.equal(this.expiry);
-      expect(strategy.amplitude).to.equal(this.amplitude);
+      expect(strategy.transferable).to.equal(this.SPEARMINT_TEST_PARAMETERS.transferable);
+      expect(strategy.expiry).to.equal(this.SPEARMINT_TEST_PARAMETERS.expiry);
+      expect(strategy.amplitude).to.equal(this.SPEARMINT_TEST_PARAMETERS.amplitude);
       expect(strategy.bra).to.equal(this.BRA.address);
       expect(strategy.ket).to.equal(this.KET.address);
       expect(strategy.basis).to.equal(this.Basis.address);
       expect(strategy.actionNonce).to.equal(0);
-      expect(strategy.phase).to.deep.equal(this.phase);
+      expect(strategy.phase).to.deep.equal(this.SPEARMINT_TEST_PARAMETERS.phase);
 
       // Collateral Manager State
       expect(
@@ -74,13 +75,13 @@ describe("SPEARMINT", () => {
           this.alice.address,
           this.strategyId
         )
-      ).to.equal(this.alphaCollateralRequirement);
+      ).to.equal(this.SPEARMINT_TEST_PARAMETERS.alphaCollateralRequirement);
       expect(
         await this.CollateralManager.allocatedCollateral(
           this.bob.address,
           this.strategyId
         )
-      ).to.equal(this.omegaCollateralRequirement);
+      ).to.equal(this.SPEARMINT_TEST_PARAMETERS.omegaCollateralRequirement);
       expect(
         await this.CollateralManager.unallocatedCollateral(
           this.alice.address,
@@ -88,9 +89,9 @@ describe("SPEARMINT", () => {
         )
       ).to.equal(
         this.alphaDeposit
-          .sub(this.alphaCollateralRequirement)
-          .sub(this.alphaFee)
-          .sub(this.premium)
+          .sub(this.SPEARMINT_TEST_PARAMETERS.alphaCollateralRequirement)
+          .sub(this.SPEARMINT_TEST_PARAMETERS.alphaFee)
+          .sub(this.SPEARMINT_TEST_PARAMETERS.premium)
       );
       expect(
         await this.CollateralManager.unallocatedCollateral(
@@ -99,14 +100,14 @@ describe("SPEARMINT", () => {
         )
       ).to.equal(
         this.omegaDeposit
-          .sub(this.omegaCollateralRequirement)
-          .sub(this.omegaFee)
-          .add(this.premium)
+          .sub(this.SPEARMINT_TEST_PARAMETERS.omegaCollateralRequirement)
+          .sub(this.SPEARMINT_TEST_PARAMETERS.omegaFee)
+          .add(this.SPEARMINT_TEST_PARAMETERS.premium)
       );
 
-      // Fees sent to treasury
+      //Fees sent to treasury
       expect(await this.Basis.balanceOf(this.owner.address)).to.equal(
-        this.alphaFee.add(this.omegaFee)
+        this.SPEARMINT_TEST_PARAMETERS.alphaFee.add(this.SPEARMINT_TEST_PARAMETERS.omegaFee)
       );
     });
 
