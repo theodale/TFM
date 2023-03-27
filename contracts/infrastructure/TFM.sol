@@ -152,6 +152,7 @@ contract TFM is
     function peppermint() external {}
 
     // Transfer a strategy position
+    // Ensure correct collateral and security flow when trasnferring to self
     function transfer(
         TransferTerms calldata _terms,
         TransferParameters calldata _parameters

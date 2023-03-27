@@ -2,14 +2,6 @@
 
 pragma solidity =0.8.14;
 
-// Do we need this?
-enum Action {
-    MINT,
-    TRANSFER,
-    COMBINE,
-    NOVATE
-}
-
 struct Strategy {
     bool transferable;
     address bra;

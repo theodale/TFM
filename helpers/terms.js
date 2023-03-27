@@ -1,6 +1,11 @@
 const { ethers } = require("hardhat");
 
-const generateSpearmintTerms = async (
+// This module contains functions that sign terms for TFM actions
+// These functions return:
+// - a signature made by an input oracle for the specified terms
+// - a terms object that can be passed as the relevant terms struct to the TFM action function
+
+const getSpearmintTerms = async (
   oracle,
   expiry,
   alphaCollateralRequirement,
@@ -46,36 +51,34 @@ const generateSpearmintTerms = async (
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
   const spearmintTerms = {
-    expiry: expiry,
-    alphaCollateralRequirement: alphaCollateralRequirement,
-    omegaCollateralRequirement: omegaCollateralRequirement,
-    alphaFee: alphaFee,
-    omegaFee: omegaFee,
-    oracleNonce: oracleNonce,
+    expiry,
+    alphaCollateralRequirement,
+    omegaCollateralRequirement,
+    alphaFee,
+    omegaFee,
+    oracleNonce,
     bra: bra.address,
     ket: ket.address,
     basis: basis.address,
-    amplitude: amplitude,
-    phase: phase,
+    amplitude,
+    phase,
   };
 
   return { oracleSignature, spearmintTerms };
 };
 
-const generateExerciseTerms = async (
+const getTransferTerms = async (
   TFM,
+  strategyId,
   oracle,
-  payout,
-  alphaFee,
-  omegaFee,
-  expiry,
-  bra,
-  ket,
-  basis,
-  amplitude,
-  phase
+  recipientCollateralRequirement,
+  senderFee,
+  recipientFee,
+  alphaTransfer
 ) => {
   const oracleNonce = await TFM.oracleNonce();
+
+  const strategy = await TFM.getStrategy(strategyId);
 
   const hash = ethers.utils.solidityKeccak256(
     [
@@ -88,89 +91,38 @@ const generateExerciseTerms = async (
       "uint256",
       "uint256",
       "uint256",
-      "int256",
+      "bool",
+      "uint256",
     ],
     [
-      expiry,
-      bra.address,
-      ket.address,
-      basis.address,
-      amplitude,
-      phase,
+      strategy.expiry,
+      strategy.bra,
+      strategy.ket,
+      strategy.basis,
+      strategy.amplitude,
+      strategy.phase,
+      senderFee,
+      recipientFee,
+      recipientCollateralRequirement,
+      alphaTransfer,
       oracleNonce,
-      alphaFee,
-      omegaFee,
-      payout,
     ]
   );
 
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-  const exerciseTerms = {
-    payout: payout,
-    oracleNonce: oracleNonce,
-    alphaFee,
-    omegaFee,
-  };
-
-  return { oracleSignature, exerciseTerms };
-};
-
-const generateCombinationTerms = async (
-  TFM,
-  oracle,
-  payout,
-  alphaFee,
-  omegaFee,
-  expiry,
-  bra,
-  ket,
-  basis,
-  amplitude,
-  phase
-) => {
-  const oracleNonce = await TFM.oracleNonce();
-
-  const hash = ethers.utils.solidityKeccak256(
-    [
-      "uint256",
-      "address",
-      "address",
-      "address",
-      "uint256",
-      "int256[2][]",
-      "uint256",
-      "uint256",
-      "uint256",
-      "int256",
-    ],
-    [
-      expiry,
-      bra.address,
-      ket.address,
-      basis.address,
-      amplitude,
-      phase,
-      oracleNonce,
-      alphaFee,
-      omegaFee,
-      payout,
-    ]
-  );
-
-  const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
-
-  const exerciseTerms = {
-    payout,
+  const transferTerms = {
+    recipientCollateralRequirement,
     oracleNonce,
-    alphaFee,
-    omegaFee,
+    senderFee,
+    recipientFee,
+    alphaTransfer,
   };
 
-  return { oracleSignature, exerciseTerms };
+  return { oracleSignature, transferTerms };
 };
 
 module.exports = {
-  generateSpearmintTerms,
-  generateExerciseTerms,
+  getSpearmintTerms,
+  getTransferTerms,
 };

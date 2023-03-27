@@ -1,7 +1,7 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function testDeployment() {
-  const [owner, oracle, alice, bob] = await ethers.getSigners();
+  const [owner, oracle, alice, bob, carol] = await ethers.getSigners();
 
   // Deploy Utils library
   const UtilsFactory = await ethers.getContractFactory("Utils");
@@ -54,6 +54,7 @@ async function testDeployment() {
     oracle,
     alice,
     bob,
+    carol,
   };
 }
 

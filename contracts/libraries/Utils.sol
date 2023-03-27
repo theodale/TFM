@@ -87,8 +87,7 @@ library Utils {
             _parameters.oracleSignature,
             _parameters.strategyId,
             _parameters.recipient,
-            _parameters.premium,
-            Action.TRANSFER
+            _parameters.premium
         );
 
         bytes32 hash = _generateMessageHash(message);
