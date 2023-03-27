@@ -1,16 +1,12 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { testDeploy } = require("../helpers/deploy.js");
+const { testDeployment } = require("../helpers/fixtures.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");
 const { spearmint } = require("../helpers/actions.js");
 const { generateExerciseTerms } = require("../helpers/terms.js");
+const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("EXERCISE", () => {
-  before(async () => {
-    // Owner is oracle and treasury
-    [this.owner, this.alice, this.bob] = await ethers.getSigners();
-  });
-
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -19,23 +15,11 @@ describe("EXERCISE", () => {
       KET: this.KET,
       Basis: this.Basis,
       Utils: this.Utils,
-    } = await testDeploy(this.owner));
-
-    // TEST PARAMETERS
-    this.alphaDeposit = ethers.utils.parseEther("10");
-    this.omegaDeposit = ethers.utils.parseEther("10");
-    this.expiry = 1680000000;
-    this.alphaCollateralRequirement = ethers.utils.parseEther("1");
-    this.omegaCollateralRequirement = ethers.utils.parseEther("1");
-    this.alphaFee = ethers.utils.parseEther("0.01");
-    this.omegaFee = ethers.utils.parseEther("0.01");
-    this.amplitude = ethers.utils.parseEther("10");
-    this.phase = [
-      [ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")],
-    ];
-    this.premium = ethers.utils.parseEther("0.01");
-    this.transferable = true;
-    this.payout = ethers.utils.parseEther("0.5");
+      oracle: this.oracle,
+      owner: this.owner,
+      alice: this.alice,
+      bob: this.bob,
+    } = await loadFixture(testDeployment));
 
     // Give unallocated collateral in this.basis to alice and bob
     await mintAndDeposit(

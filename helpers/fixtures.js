@@ -1,6 +1,8 @@
 const { ethers, upgrades } = require("hardhat");
 
-const testDeploy = async (owner) => {
+async function testDeployment() {
+  const [owner, alice, bob] = await ethers.getSigners();
+
   // Deploy Utils library
   const UtilsFactory = await ethers.getContractFactory("Utils");
   const Utils = await UtilsFactory.deploy();
@@ -48,9 +50,12 @@ const testDeploy = async (owner) => {
     KET,
     Basis,
     Utils,
+    owner,
+    alice,
+    bob,
   };
-};
+}
 
 module.exports = {
-  testDeploy,
+  testDeployment,
 };

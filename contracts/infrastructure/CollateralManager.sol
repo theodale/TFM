@@ -12,6 +12,8 @@ import "../interfaces/ICollateralManager.sol";
 import "./PersonalPool.sol";
 import "../misc/Types.sol";
 
+import "hardhat/console.sol";
+
 contract CollateralManager is
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
@@ -262,6 +264,7 @@ contract CollateralManager is
         uint256 _omegaFee
     ) external tfmOnly {
         // Transfer payout and unallocate all remaining collateral
+        // NEED TO ADD MINUSES FOR EXPLICIT CONVERSION TO UINT256 => payout is negative, need to prefix with "-"
         if (_payout > 0) {
             unallocatedCollateral[_alpha][_basis] =
                 allocatedCollateral[_alpha][_strategyId] -
@@ -271,11 +274,11 @@ contract CollateralManager is
                 allocatedCollateral[_omega][_strategyId];
         } else {
             unallocatedCollateral[_alpha][_basis] +=
-                uint256(_payout) +
+                uint256(-_payout) +
                 allocatedCollateral[_alpha][_strategyId];
             unallocatedCollateral[_omega][_basis] =
                 allocatedCollateral[_omega][_strategyId] -
-                uint256(_payout);
+                uint256(-_payout);
         }
 
         // address alphaPool = _getPersonalPool();

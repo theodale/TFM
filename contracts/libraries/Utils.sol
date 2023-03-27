@@ -197,6 +197,8 @@ library Utils {
         address _trufinOracle,
         bytes calldata _trufinOracleSignature
     ) external view {
+        console.log("Validating combination terms");
+
         bool aligned = _getAlignement(_strategyOne, _strategyTwo);
 
         bytes memory message = abi.encodePacked(
