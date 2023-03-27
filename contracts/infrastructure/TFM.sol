@@ -145,6 +145,7 @@ contract TFM is
         );
 
         _incrementMintNonce(_parameters.alpha, _parameters.omega);
+
         emit Spearmint(strategyId);
     }
 

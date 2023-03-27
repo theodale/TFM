@@ -1,7 +1,7 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function testDeployment() {
-  const [owner, alice, bob] = await ethers.getSigners();
+  const [owner, oracle, alice, bob] = await ethers.getSigners();
 
   // Deploy Utils library
   const UtilsFactory = await ethers.getContractFactory("Utils");
@@ -28,7 +28,7 @@ async function testDeployment() {
 
   const TFM = await upgrades.deployProxy(
     TFMFactory,
-    [CollateralManager.address, owner.address, owner.address, owner.address],
+    [CollateralManager.address, owner.address, owner.address, oracle.address],
     {
       unsafeAllowLinkedLibraries: true,
       kind: "uups",
@@ -51,6 +51,7 @@ async function testDeployment() {
     Basis,
     Utils,
     owner,
+    oracle,
     alice,
     bob,
   };
