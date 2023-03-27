@@ -41,7 +41,6 @@ describe("SPEARMINT", () => {
 
     it("correct state post mint", async () => {
       const strategy = await this.TFM.getStrategy(this.strategyId);
-
       // Strategy state
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);
@@ -86,7 +85,7 @@ describe("SPEARMINT", () => {
         )
       ).to.equal(SPEARMINT_TEST_PARAMETERS_1.premium);
 
-      // Fees sent to treasury
+      //Fees sent to treasury
       expect(await this.Basis.balanceOf(this.owner.address)).to.equal(
         SPEARMINT_TEST_PARAMETERS_1.alphaFee.add(
           SPEARMINT_TEST_PARAMETERS_1.omegaFee

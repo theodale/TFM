@@ -22,7 +22,7 @@ describe("COMBINATIONS", () => {
     } = await loadFixture(testDeployment));
   });
 
-  it("exercise", async () => {
+  it("combine", async () => {
     this.strategyId = await spearmint(
       this.alice,
       this.bob,
