@@ -1,5 +1,4 @@
 const { ethers, upgrades } = require("hardhat");
-const { deploy } = require("../helpers/deploy.js");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 async function zeroState() {

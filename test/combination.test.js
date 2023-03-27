@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 const { testDeployment } = require("../helpers/fixtures.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");
 const { spearmint } = require("../helpers/actions.js");
+const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("COMBINATIONS", () => {
   beforeEach(async () => {

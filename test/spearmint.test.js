@@ -1,9 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { testDeploy } = require("../helpers/deploy.js");
-const { generateSpearmintTerms } = require("../helpers/terms.js");
-const { signSpearmintParameters } = require("../helpers/meta-transactions.js");
-const { mintAndDeposit } = require("../helpers/collateral-management.js");
+const { testDeployment } = require("../helpers/fixtures.js");
 const { spearmint } = require("../helpers/actions.js");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { zeroState, depositState } = require("../helpers/utils.js");
@@ -16,11 +13,6 @@ describe("SPEARMINT", () => {
   // - Add comments, but no need to go overboard
   // - Use the this. pattern to assign test variables instead of let. E.g. see `TEST PARAMETERS`
 
-  before(async () => {
-    // Owner is oracle and treasury
-    [this.owner, this.alice, this.bob] = await ethers.getSigners();
-  });
-
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -29,36 +21,11 @@ describe("SPEARMINT", () => {
       KET: this.KET,
       Basis: this.Basis,
       Utils: this.Utils,
-    } = await testDeploy(this.owner));
-
-    // TEST PARAMETERS
-    this.alphaDeposit = ethers.utils.parseEther("10");
-    this.omegaDeposit = ethers.utils.parseEther("10");
-    this.expiry = 1680000000;
-    this.alphaCollateralRequirement = ethers.utils.parseEther("1");
-    this.omegaCollateralRequirement = ethers.utils.parseEther("1");
-    this.alphaFee = ethers.utils.parseEther("0.01");
-    this.omegaFee = ethers.utils.parseEther("0.01");
-    this.amplitude = ethers.utils.parseEther("10");
-    this.phase = [
-      [ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")],
-    ];
-    this.premium = ethers.utils.parseEther("0.01");
-    this.transferable = true;
-
-    // Give unallocated collateral in this.basis to alice and bob
-    await mintAndDeposit(
-      this.CollateralManager,
-      this.Basis,
-      this.alice,
-      this.alphaDeposit
-    );
-    await mintAndDeposit(
-      this.CollateralManager,
-      this.Basis,
-      this.bob,
-      this.omegaDeposit
-    );
+      oracle: this.oracle,
+      owner: this.owner,
+      alice: this.alice,
+      bob: this.bob,
+    } = await loadFixture(testDeployment));
   });
 
   describe("Simple Valid Spearmint", () => {
@@ -69,6 +36,7 @@ describe("SPEARMINT", () => {
         this.premium,
         this.transferable,
         this.TFM,
+        this.CollateralManager,
         this.owner,
         this.expiry,
         this.BRA,
