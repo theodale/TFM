@@ -61,7 +61,7 @@ describe("SPEARMINT", () => {
       expect(strategy.ket).to.equal(this.KET.address);
       expect(strategy.basis).to.equal(this.Basis.address);
       expect(strategy.actionNonce).to.equal(0);
-      expect(strategy.phase).to.deep.equal(SPEARMINT_TEST_PARAMETERS_1.phase);
+      expect(strategy.phase).to.deep.equal(SPEARMINT_TEST_PARAMETERS_1.phase);  });
 
       it("Should have the correct collateral state post-mint", async () => {
       // correct allocated collateral 
@@ -104,6 +104,7 @@ describe("SPEARMINT", () => {
     it("Should have correct personalPool balances post-mint", async () => {
       
     })
+  })
 
     // it("should mint with correct values", async () => {
     //   spearmint(
@@ -434,7 +435,7 @@ describe("SPEARMINT", () => {
     //        this.utils.validateSpearmintTerms(res.spearmintTerms,res.trufinOracleSignature,this.owner.address)
     //     ).to.be.revertedWith("TFM: Invalid Trufin oracle signature");
     //   })
-  });
+
 
   //     // it("should mint with correct values", async () => {
   //     //   spearmint(
