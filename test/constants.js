@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const spearmint = {
+export const SPEARMINT_TEST_PARAMETERS = {
   alphaDeposit: ethers.utils.parseEther("10"),
   omegaDeposit: ethers.utils.parseEther("10"),
   expiry: 1680000000,

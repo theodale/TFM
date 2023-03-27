@@ -13,6 +13,8 @@ describe("SPEARMINT", () => {
   // - Add comments, but no need to go overboard
   // - Use the this. pattern to assign test variables instead of let. E.g. see `TEST PARAMETERS`
 
+  const { SPEARMINT_TEST_PARAMETERS } = require("../helpers/constants.js");
+
   beforeEach(async () => {
     ({
       TFM: this.TFM,
