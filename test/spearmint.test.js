@@ -40,7 +40,8 @@ describe("SPEARMINT", () => {
       );
       this.alphaDeposit = SPEARMINT_TEST_PARAMETERS_1.alphaCollateralRequirement.add(SPEARMINT_TEST_PARAMETERS_1.alphaFee).add(SPEARMINT_TEST_PARAMETERS_1.premium)
       this.omegaDeposit = SPEARMINT_TEST_PARAMETERS_1.omegaCollateralRequirement.add(SPEARMINT_TEST_PARAMETERS_1.omegaFee)
-      
+      this.alphaPersonalPool = await this.CollateralManager.personalPools(this.alice.address)
+      this.omegaPersonalPool = await this.CollateralManager.personalPools(this.bob.address)
       
 
     });
@@ -102,30 +103,31 @@ describe("SPEARMINT", () => {
 
     });
     it("Should have correct personalPool balances post-mint", async () => {
-      
+      expect(await this.Basis.balanceOf(this.omegaPersonalPool)).to.equal(this.omegaDeposit.add(SPEARMINT_TEST_PARAMETERS_1.premium).sub(SPEARMINT_TEST_PARAMETERS_1.omegaFee))
+      expect(await this.Basis.balanceOf(this.alphaPersonalPool)).to.equal(this.alphaDeposit.sub(SPEARMINT_TEST_PARAMETERS_1.premium).sub(SPEARMINT_TEST_PARAMETERS_1.alphaFee))
+
     })
   })
 
-    // it("should mint with correct values", async () => {
-    //   spearmint(
-    //     this.alice,
-    //     this.bob,
-    //     premium,
-    //     true,
-    //     this.TFM,
-    //     this.owner,
-    //     1234,
-    //     bra,
-    //     ket,
-    //     this.basis.address,
-    //     1,
-    //     [[1, 10]],
-    //     alphaCollateralRequirement,
-    //     omegaCollateralRequirement,
-    //     alphaFee,
-    //     omegaFee
-    //   );
-    // });
+  describe("Signature authentication", () => {
+    it("should revert with wrong oracle signature", async () => {
+          await expect(
+            spearmint(
+              this.alice,
+              this.bob,
+              this.TFM,
+              this.CollateralManager,
+              this.alice,
+              this.BRA,
+              this.KET,
+              this.Basis,
+             SPEARMINT_TEST_PARAMETERS_1
+            )
+          ).to.be.revertedWith("SPEARMINT: Invalid Trufin oracle signature");
+        });
+
+  })
+
 
     // it("should revert with wrong oracle signature", async () => {
     //   await expect(
