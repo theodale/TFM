@@ -6,7 +6,7 @@ const { spearmint } = require("../helpers/actions.js");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { SPEARMINT_TEST_PARAMETERS_1 } = require("./test-parameters.js");
 
-describe("COMBINATION", () => {
+describe("TRANSFER", () => {
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -22,7 +22,7 @@ describe("COMBINATION", () => {
     } = await loadFixture(testDeployment));
   });
 
-  it("Combine", async () => {
+  it("Transfer", async () => {
     this.strategyId = await spearmint(
       this.alice,
       this.bob,

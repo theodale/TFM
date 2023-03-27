@@ -41,6 +41,7 @@ describe("SPEARMINT", () => {
 
     it("correct state post mint", async () => {
       const strategy = await this.TFM.getStrategy(this.strategyId);
+
       // Strategy state
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);

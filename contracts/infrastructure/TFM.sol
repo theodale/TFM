@@ -201,6 +201,8 @@ contract TFM is
     }
 
     // Combine two strategies into one
+    // We delete one strategy (strategyTwo) and overwrite the other (strategyOne) into the new combined strategy
+    // This combined strategy has strategyOne's alpha and omega  => terms offered for this direction
     function combine(
         CombinationTerms calldata _terms,
         CombinationParameters calldata _parameters
@@ -240,15 +242,13 @@ contract TFM is
             _terms.strategyOneOmegaFee
         );
 
-        // We delete strategy two and overwrite strategy one into the new combined strategy
-        // This combined strategy has strategy one's alpha and omega  => resutling amplitude/collateral requirements/fees signed for this direction
-
-        // Minamally alter strategy one to combimed form
+        // Minimally alter strategy one to combimed form
         strategyOne.phase = _terms.resultingPhase;
         strategyOne.amplitude = _terms.resultingAmplitude;
 
-        // Delete strategy two
         _deleteStrategy(_parameters.strategyTwoId);
+
+        emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
     // Call to finalise a position on a strategy

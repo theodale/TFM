@@ -11,6 +11,8 @@ interface ITFM {
 
     event Transfer(uint256 strategyId);
 
+    event Combination(uint256 strategyOneId, uint256 strategyTwoId);
+
     event Withdraw(uint256 strategyId);
 
     event Exercise(uint256 strategyId);

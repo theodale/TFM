@@ -1,5 +1,4 @@
 const { ethers } = require("hardhat");
-
 const { generateSpearmintTerms } = require("./terms.js");
 const { signSpearmintParameters } = require("./meta-transactions.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");

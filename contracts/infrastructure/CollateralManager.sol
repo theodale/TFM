@@ -100,6 +100,7 @@ contract CollateralManager is
 
     // *** TFM COLLATERAL METHODS ***
 
+    // Premium transferred before collateral locked and fee taken
     function spearmint(
         uint256 _strategyId,
         address _alpha,
@@ -111,16 +112,9 @@ contract CollateralManager is
         uint256 _omegaFee,
         int256 _premium
     ) external tfmOnly {
+        // Cache personal pool addresses
         address payable alphaPool = _getPersonalPool(_alpha);
         address payable omegaPool = _getPersonalPool(_omega);
-
-        unallocatedCollateral[_alpha][_basis] -=
-            _alphaCollateralRequirement +
-            _alphaFee;
-
-        unallocatedCollateral[_omega][_basis] -=
-            _omegaCollateralRequirement +
-            _omegaFee;
 
         _transferPremium(
             _alpha,
@@ -131,19 +125,28 @@ contract CollateralManager is
             _premium
         );
 
+        // Take fee and required collateral from unallocated minter collateral
+        unallocatedCollateral[_alpha][_basis] -=
+            _alphaCollateralRequirement +
+            _alphaFee;
+        unallocatedCollateral[_omega][_basis] -=
+            _omegaCollateralRequirement +
+            _omegaFee;
+
         // Allocate required collateral to the new strategy
         allocatedCollateral[_alpha][_strategyId] += _alphaCollateralRequirement;
         allocatedCollateral[_omega][_strategyId] += _omegaCollateralRequirement;
 
+        // Transfer tokens taken as a fee from personal pools to treasury
         if (_alphaFee > 0) {
             _transferFromPersonalPool(alphaPool, _basis, treasury, _alphaFee);
         }
-
         if (_omegaFee > 0) {
             _transferFromPersonalPool(omegaPool, _basis, treasury, _omegaFee);
         }
     }
 
+    // Premium trasnferred before collateral locked and fee taken
     function transfer(
         uint256 _strategyId,
         address _sender,
@@ -154,8 +157,18 @@ contract CollateralManager is
         uint256 _recipientFee,
         int256 _premium
     ) external tfmOnly {
+        // Cache personal pool addresses
         address payable senderPool = _getPersonalPool(_sender);
         address payable recipientPool = _getPersonalPool(_recipient);
+
+        _transferPremium(
+            _sender,
+            _recipient,
+            senderPool,
+            recipientPool,
+            _basis,
+            _premium
+        );
 
         // Unallocate collateral sender has allocated to the strategy
         unallocatedCollateral[_sender][_basis] += allocatedCollateral[_sender][
@@ -171,20 +184,11 @@ contract CollateralManager is
             _strategyId
         ] += recipientCollateralRequirement;
 
-        _transferPremium(
-            _sender,
-            _recipient,
-            senderPool,
-            recipientPool,
-            _basis,
-            _premium
-        );
-
-        // Register fees taken
+        // Register fee payment
         unallocatedCollateral[_sender][_basis] -= _senderFee;
         unallocatedCollateral[_recipient][_basis] -= _recipientFee;
 
-        // Transfer fees to treasury
+        // Take protocol fee
         _transferFromPersonalPool(senderPool, _basis, treasury, _senderFee);
         _transferFromPersonalPool(
             recipientPool,
@@ -332,12 +336,6 @@ contract CollateralManager is
         address payable pool = _getPersonalPool(_user);
 
         PersonalPool(pool).transferERC20(_token, _recipient, _amount);
-    }
-
-    function _takeFee(address _user, address _token, uint256 _fee) internal {
-        unallocatedCollateral[_user][_token] -= _fee;
-
-        _transferFromUsersPool(_user, _token, treasury, _fee);
     }
 
     // Execute a premium transfer between two parties
