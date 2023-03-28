@@ -10,7 +10,7 @@ const SPEARMINT_TEST_PARAMETERS_1 = {
   omegaFee: ethers.utils.parseEther("0.01"),
   amplitude: ethers.utils.parseEther("10"),
   phase: [[ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")]],
-  premium: ethers.utils.parseEther("0.01"),
+  premium: ethers.utils.parseEther("-0.01"),
   transferable: true,
   payout: ethers.utils.parseEther("0.5"),
   expiry: 1687800000,

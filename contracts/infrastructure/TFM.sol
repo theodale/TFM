@@ -285,6 +285,7 @@ contract TFM is
         emit Exercise(_parameters.strategyId);
     }
 
+    //@tiff review: do we not only want to let the relayer update the oracle nonce after expiry time?
     function updateOracleNonce(
         uint256 _oracleNonce,
         bytes calldata _oracleSignature
