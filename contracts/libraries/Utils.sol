@@ -126,8 +126,8 @@ library Utils {
     function validateTransferTerms(
         TransferTerms calldata _terms,
         Strategy storage _strategy,
-        address _trufinOracle,
-        bytes memory _trufinOracleSignature
+        address _oracle,
+        bytes memory _oracleSignature
     ) external view {
         bytes memory message = abi.encodePacked(
             _strategy.expiry,
@@ -144,7 +144,7 @@ library Utils {
         );
 
         require(
-            _isValidSignature(message, _trufinOracleSignature, _trufinOracle),
+            _isValidSignature(message, _oracleSignature, _oracle),
             "TRANSFER: Invalid Trufin oracle signature"
         );
     }
@@ -158,14 +158,14 @@ library Utils {
         Strategy storage _strategyTwo,
         bytes calldata _strategyOneAlphaSignature,
         bytes calldata _strategyOneOmegaSignature,
-        bytes calldata _trufinOracleSignature
+        bytes calldata _oracleSignature
     ) external view {
         bytes memory message = abi.encodePacked(
             _stragegyOneId,
             _stragegyTwoId,
             _strategyOne.actionNonce,
             _strategyTwo.actionNonce,
-            _trufinOracleSignature
+            _oracleSignature
         );
 
         bytes32 hash = _generateMessageHash(message);
@@ -193,8 +193,8 @@ library Utils {
         CombinationTerms calldata _terms,
         Strategy storage _strategyOne,
         Strategy storage _strategyTwo,
-        address _trufinOracle,
-        bytes calldata _trufinOracleSignature
+        address _oracle,
+        bytes calldata _oracleSignature
     ) external view {
         console.log("Validating combination terms");
 
@@ -230,7 +230,7 @@ library Utils {
         );
 
         require(
-            _isValidSignature(message, _trufinOracleSignature, _trufinOracle),
+            _isValidSignature(message, _oracleSignature, _oracle),
             "COMBINATION: Invalid Trufin oracle signature"
         );
     }
@@ -240,8 +240,8 @@ library Utils {
     function validateExerciseTerms(
         ExerciseTerms calldata _terms,
         Strategy storage _strategy,
-        address _trufinOracle,
-        bytes calldata _trufinOracleSignature
+        address _oracle,
+        bytes calldata _oracleSignature
     ) external view {
         bytes memory message = abi.encodePacked(
             _strategy.expiry,
@@ -257,8 +257,44 @@ library Utils {
         );
 
         require(
-            _isValidSignature(message, _trufinOracleSignature, _trufinOracle),
+            _isValidSignature(message, _oracleSignature, _oracle),
             "EXERCISE: Invalid Trufin oracle signature"
+        );
+    }
+
+    // LIQUIDATE
+
+    function validateLiquidationTerms(
+        LiquidationTerms calldata _terms,
+        Strategy storage _strategy,
+        bytes calldata _oracleSignature,
+        address _oracle,
+        uint256 _initialAlphaAllocation,
+        uint256 _initialOmegaAllocation
+    ) external view {
+        bytes memory message = abi.encodePacked(
+            abi.encodePacked(
+                _strategy.expiry,
+                _strategy.bra,
+                _strategy.ket,
+                _strategy.basis,
+                _strategy.amplitude,
+                _strategy.phase,
+                _terms.oracleNonce,
+                _terms.compensation,
+                _terms.alphaFee
+            ),
+            abi.encodePacked(
+                _terms.omegaFee,
+                _terms.postLiquidationAmplitude,
+                _initialAlphaAllocation,
+                _initialOmegaAllocation
+            )
+        );
+
+        require(
+            _isValidSignature(message, _oracleSignature, _oracle),
+            "LIQUIDATE: Invalid Trufin oracle signature"
         );
     }
 
@@ -288,13 +324,13 @@ library Utils {
 
     function validateOracleNonceUpdate(
         uint256 _oracleNonce,
-        bytes calldata _trufinOracleSignature,
-        address _trufinOracle
+        bytes calldata _oracleSignature,
+        address _oracle
     ) external view {
         bytes memory encoding = abi.encodePacked(_oracleNonce);
 
         require(
-            _isValidSignature(encoding, _trufinOracleSignature, _trufinOracle),
+            _isValidSignature(encoding, _oracleSignature, _oracle),
             "ORACLE NONCE UPDATE: Invalid Trufin oracle signature"
         );
     }

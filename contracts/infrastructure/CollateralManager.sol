@@ -258,6 +258,7 @@ contract CollateralManager is
         delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
 
+    // Potential DoS if opposition does not have enough allocated collateral - if the fee is greater than their post payout collateral
     function exercise(
         uint256 _strategyId,
         address _alpha,
@@ -268,7 +269,6 @@ contract CollateralManager is
         uint256 _omegaFee
     ) external tfmOnly {
         // Transfer payout and unallocate all remaining collateral
-        // NEED TO ADD MINUSES FOR EXPLICIT CONVERSION TO UINT256 => payout is negative, need to prefix with "-"
         if (_payout > 0) {
             unallocatedCollateral[_alpha][_basis] =
                 allocatedCollateral[_alpha][_strategyId] -
@@ -296,6 +296,74 @@ contract CollateralManager is
         // Delete state to add gas reduction
         allocatedCollateral[_alpha][_strategyId] = 0;
         allocatedCollateral[_omega][_strategyId] = 0;
+    }
+
+    // LIQUIDATE
+
+    // LIQUIDATE
+
+    function liquidate(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        int256 _compensation,
+        address _basis,
+        uint256 _alphaFee,
+        uint256 _omegaFee
+    ) external {
+        // uint256 alphaAllocatedCollateralReduction;
+        // uint256 omegaAllocatedCollateralReduction;
+        // Fees
+        // if (_liquidationParams.alphaFee > 0) {
+        //     PersonalPool(alphaPool).transferERC20(
+        //         _basis,
+        //         TreasuryAddress,
+        //         _liquidationParams.alphaFee
+        //     );
+        //     alphaAllocatedCollateralReduction += _liquidationParams.alphaFee;
+        // }
+        // if (_liquidationParams.omegaFee > 0) {
+        //     PersonalPool(omegaPool).transferERC20(
+        //         _basis,
+        //         TreasuryAddress,
+        //         _liquidationParams.omegaFee
+        //     );
+        //     omegaAllocatedCollateralReduction += _liquidationParams.omegaFee;
+        // }
+        // Compensations
+        // if (_liquidationParams.alphaCompensation > 0) {
+        //     PersonalPool(omegaPool).transferERC20(
+        //         _basis,
+        //         alphaPool,
+        //         _liquidationParams.alphaCompensation
+        //     );
+        //     omegaAllocatedCollateralReduction += _liquidationParams
+        //         .alphaCompensation;
+        //     unallocatedCollateral[_alpha][_basis] += _liquidationParams
+        //         .alphaCompensation;
+        // }
+        // if (_liquidationParams.omegaCompensation > 0) {
+        //     PersonalPool(alphaPool).transferERC20(
+        //         _basis,
+        //         omegaPool,
+        //         _liquidationParams.omegaCompensation
+        //     );
+        //     alphaAllocatedCollateralReduction += _liquidationParams
+        //         .omegaCompensation;
+        //     unallocatedCollateral[_omega][_basis] += _liquidationParams
+        //         .omegaCompensation;
+        // }
+        // Update allocations
+        // if (alphaAllocatedCollateralReduction > 0) {
+        //     allocatedCollateral[_alpha][
+        //         _strategyId
+        //     ] -= alphaAllocatedCollateralReduction;
+        // }
+        // if (omegaAllocatedCollateralReduction > 0) {
+        //     allocatedCollateral[_omega][
+        //         _strategyId
+        //     ] -= omegaAllocatedCollateralReduction;
+        // }
     }
 
     /// *** INTERNAL METHODS ***
@@ -369,64 +437,4 @@ contract CollateralManager is
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
-
-    // function executeLiquidation(
-    //     LiquidationParams calldata _liquidationParams,
-    //     uint256 _strategyId,
-    //     address _alpha,
-    //     address _omega,
-    //     address _basis
-    // ) external isTFM {
-    //     // Ensure liquidation parameters correspond to the parties' actual collateral allocations
-    //     require(
-    //         allocatedCollateral[_alpha][_strategyId] ==
-    //             _liquidationParams.initialAlphaAllocation
-    //     );
-    //     require(
-    //         allocatedCollateral[_omega][_strategyId] ==
-    //             _liquidationParams.initialOmegaAllocation
-    //     );
-
-    //     uint256 alphaAllocatedCollateralReduction;
-    //     uint256 omegaAllocatedCollateralReduction;
-
-    //     // Fees
-
-    //     if (_liquidationParams.alphaFee > 0) {
-    //         PersonalPool(alphaPool).transferERC20(_basis, TreasuryAddress, _liquidationParams.alphaFee);
-    //         alphaAllocatedCollateralReduction += _liquidationParams.alphaFee;
-    //     }
-
-    //     if (_liquidationParams.omegaFee >0) {
-    //         PersonalPool(omegaPool).transferERC20(_basis, TreasuryAddress, _liquidationParams.omegaFee);
-    //         omegaAllocatedCollateralReduction += _liquidationParams.omegaFee;
-    //     }
-
-    //     // Compensations
-
-    //     if (_liquidationParams.alphaCompensation > 0) {
-    //         PersonalPool(omegaPool).transferERC20(_basis, alphaPool, _liquidationParams.alphaCompensation);
-    //         omegaAllocatedCollateralReduction += _liquidationParams.alphaCompensation;
-    //         unallocatedCollateral[_alpha][_basis] += _liquidationParams.alphaCompensation;
-    //     }
-
-    //     if (_liquidationParams.omegaCompensation > 0) {
-    //         PersonalPool(alphaPool).transferERC20(_basis, omegaPool, _liquidationParams.omegaCompensation);
-    //         alphaAllocatedCollateralReduction += _liquidationParams.omegaCompensation;
-    //         unallocatedCollateral[_omega][_basis] += _liquidationParams.omegaCompensation;
-    //     }
-
-    //     // Update allocations
-
-    //     if (alphaAllocatedCollateralReduction > 0) {
-    //         allocatedCollateral[_alpha][_strategyId] -= alphaAllocatedCollateralReduction;
-    //     }
-
-    //     if (omegaAllocatedCollateralReduction >0) {
-    //         allocatedCollateral[_omega][_strategyId] -= omegaAllocatedCollateralReduction;
-    //     }
-
-    //     // Call new checkCollateralNonce method here
-    //     checkCollateralNonce( _liquidationParams.collateralNonce);
-    // }
 }

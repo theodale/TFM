@@ -2,6 +2,8 @@
 
 pragma solidity =0.8.14;
 
+// *** STATE ***
+
 struct Strategy {
     bool transferable;
     address bra;
@@ -90,6 +92,8 @@ struct CombinationParameters {
     bytes oracleSignature;
 }
 
+// EXERCISE
+
 struct ExerciseTerms {
     // If payout is +ve => alpha pays omega, if payout is -ve => omega pays alpha
     int256 payout;
@@ -103,22 +107,21 @@ struct ExerciseParameters {
     uint256 strategyId;
 }
 
-// struct LiquidationParams {
-//     uint256 collateralNonce;
-//     // The amount of basis transferred from omega to alpha as compensation for any value loss they experience due to amplitude reduction
-//     uint256 alphaCompensation;
-//     // The amount of basis transferred from alpha to omega as compensation for any value loss they experience due to amplitude reduction
-//     uint256 omegaCompensation;
-//     // The fee paid by alpha during liquidation
-//     uint256 alphaFee;
-//     // The fee paid by omega during liquidation
-//     uint256 omegaFee;
-//     // The value the liquidated strategy's amplitude is reduced to in order to maintain collateralisation
-//     int256 newAmplitude;
-//     // The new max notional of the liquidated strategy
-//     uint256 newMaxNotional;
-//     // The amount of basis alpha has allocated to the strategy pre-liquidation
-//     uint256 initialAlphaAllocation;
-//     // The amount of basis omega has allocated to the strategy pre-liquidation
-//     uint256 initialOmegaAllocation;
-// }
+// LIQUIDATE
+
+struct LiquidationTerms {
+    uint256 oracleNonce;
+    // Basis transferred from one party to other as compensation for any value loss they experience due to amplitude reduction
+    int256 compensation;
+    // The fee paid by alpha during liquidation
+    uint256 alphaFee;
+    // The fee paid by omega during liquidation
+    uint256 omegaFee;
+    // The value the liquidated strategy's amplitude is reduced to in order to maintain collateralisation
+    int256 postLiquidationAmplitude;
+}
+
+struct LiquidationParameters {
+    uint256 strategyId;
+    bytes oracleSignature;
+}

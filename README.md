@@ -10,6 +10,8 @@ The options layer of the future.
 ### TODO
 
 - Ensure full fee flexibilty. For example, in transfers, a fee can only be charged to the sender and recipient.
+- Ask about exercise -> two step? DoS possibility?
+- Liquidation never involves the deletion of a strategy?
 
 ### Web2
 

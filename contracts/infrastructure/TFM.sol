@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../misc/Types.sol";
 import "../libraries/Utils.sol";
-import "./CollateralManager.sol";
+import "../interfaces/ICollateralManager.sol";
 import "../interfaces/ITFM.sol";
 
 import "hardhat/console.sol";
@@ -50,7 +50,7 @@ contract TFM is
     address internal liquidator;
 
     // Protocol's collateral management contract
-    CollateralManager public collateralManager;
+    ICollateralManager public collateralManager;
 
     // *** INITIALIZE ***
 
@@ -71,7 +71,7 @@ contract TFM is
 
         // Set relevant addresses & contracts
         liquidator = _liquidator;
-        collateralManager = CollateralManager(_collateralManager);
+        collateralManager = ICollateralManager(_collateralManager);
         trufinOracle = _trufinOracle;
         lockTime = 2 hours;
         latestOracleNonceUpdateTime = block.timestamp;
@@ -107,7 +107,7 @@ contract TFM is
     function setCollateralManager(
         address _collateralManager
     ) external onlyOwner {
-        collateralManager = CollateralManager(_collateralManager);
+        collateralManager = ICollateralManager(_collateralManager);
     }
 
     // *** STRATEGY ACTIONS ***
@@ -310,36 +310,47 @@ contract TFM is
 
     // *** LIQUIDATION ***
 
-    // function liquidate(
-    //     LiquidationParams calldata _liquidationParams,
-    //     uint256 _strategyId,
-    //     bytes calldata _liquidationSignature
-    // ) external {
-    //     require(msg.sender == liquidator, "A1");
+    function liquidate(
+        LiquidationTerms calldata _terms,
+        LiquidationParameters calldata _params
+    ) external {
+        require(msg.sender == liquidator, "TFM: Liquidator only");
 
-    //     Strategy storage strategy = strategies[_strategyId];
+        Strategy storage strategy = strategies[_params.strategyId];
 
-    //     Utils.checkLiquidationSignature(
-    //         _liquidationParams,
-    //         strategy,
-    //         _liquidationSignature,
-    //         collateralManager.Web2Address()
-    //     );
+        uint256 alphaInitialCollateral = collateralManager.allocatedCollateral(
+            strategy.alpha,
+            _params.strategyId
+        );
+        uint256 omegaInitialCollateral = collateralManager.allocatedCollateral(
+            strategy.omega,
+            _params.strategyId
+        );
 
-    //     // Reduce strategy's amplitude to maintain collateralisation
-    //     strategy.amplitude = _liquidationParams.newAmplitude;
-    //     strategy.maxNotional = _liquidationParams.newMaxNotional;
+        Utils.validateLiquidationTerms(
+            _terms,
+            strategy,
+            _params.oracleSignature,
+            trufinOracle,
+            alphaInitialCollateral,
+            omegaInitialCollateral
+        );
 
-    //     collateralManager.executeLiquidation(
-    //         _liquidationParams,
-    //         _strategyId,
-    //         strategy.alpha,
-    //         strategy.omega,
-    //         strategy.basis
-    //     );
+        // Reduce strategy's amplitude to maintain collateralisation
+        strategy.amplitude = _terms.postLiquidationAmplitude;
 
-    //     emit Liquidated(_strategyId);
-    // }
+        collateralManager.liquidate(
+            _params.strategyId,
+            strategy.alpha,
+            strategy.omega,
+            _terms.compensation,
+            strategy.basis,
+            _terms.alphaFee,
+            _terms.omegaFee
+        );
+
+        emit Liquidate(_params.strategyId);
+    }
 
     // *** INTERNAL METHODS ***
 
