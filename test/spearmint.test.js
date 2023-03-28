@@ -10,6 +10,7 @@ const { SPEARMINT_TEST_PARAMETERS_1 } = require("./test-parameters.js");
 const { signSpearmintParameters } = require("../helpers/meta-transactions.js");
 const { generateSpearmintTerms } = require("../helpers/terms.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");
+const {setNonce} = require("../helpers/setOracleNonce.js")
 
 describe("SPEARMINT", () => {
   beforeEach(async () => {
@@ -339,6 +340,13 @@ describe("SPEARMINT", () => {
         this.TFM.spearmint(this.res1.spearmintTerms, this.sp1)
       ).to.be.revertedWith("TFM: Oracle nonce has expired");
     });
+
+    it("should allow updating the oracleNonce", async() => {
+      this.oracleSig = await setNonce(this.TFM,this.oracle,2)
+      await expect(this.TFM.updateOracleNonce(2,this.oracleSig)).to.emit(this.TFM,"OracleNonceUpdated").withArgs(2)
+      await expect(this.TFM.spearmint(this.res.spearmintTerms,this.sp)).to.be.revertedWith("TFM: Oracle nonce has expired")
+      await expect(this.TFM.updateOracleNonce(1,this.oracleSig)).to.be.revertedWith("TFM: Oracle nonce can only be increased")
+    })
   });
 
   //this.sp1 = await signSpearmintParameters(
