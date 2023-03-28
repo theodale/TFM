@@ -10,7 +10,7 @@ const { SPEARMINT_TEST_PARAMETERS_1 } = require("./test-parameters.js");
 const { signSpearmintParameters } = require("../helpers/meta-transactions.js");
 const { generateSpearmintTerms } = require("../helpers/terms.js");
 const { mintAndDeposit } = require("../helpers/collateral-management.js");
-const {setNonce} = require("../helpers/setOracleNonce.js")
+const { setNonce } = require("../helpers/setOracleNonce.js");
 
 describe("SPEARMINT", () => {
   beforeEach(async () => {
@@ -41,19 +41,25 @@ describe("SPEARMINT", () => {
         this.Basis,
         SPEARMINT_TEST_PARAMETERS_1
       );
-      if(SPEARMINT_TEST_PARAMETERS_1.premium > 0){this.alphaDeposit = SPEARMINT_TEST_PARAMETERS_1.alphaCollateralRequirement
-        .add(SPEARMINT_TEST_PARAMETERS_1.alphaFee)
-        .add(SPEARMINT_TEST_PARAMETERS_1.premium);
-      this.omegaDeposit =
-        SPEARMINT_TEST_PARAMETERS_1.omegaCollateralRequirement.add(
-          SPEARMINT_TEST_PARAMETERS_1.omegaFee
-        );}
-      else{this.alphaDeposit = SPEARMINT_TEST_PARAMETERS_1.alphaCollateralRequirement
-        .add(SPEARMINT_TEST_PARAMETERS_1.alphaFee)
-      this.omegaDeposit =
-        SPEARMINT_TEST_PARAMETERS_1.omegaCollateralRequirement.add(
-          SPEARMINT_TEST_PARAMETERS_1.omegaFee
-        ).add((SPEARMINT_TEST_PARAMETERS_1.premium).mul(-1));}
+      if (SPEARMINT_TEST_PARAMETERS_1.premium > 0) {
+        this.alphaDeposit =
+          SPEARMINT_TEST_PARAMETERS_1.alphaCollateralRequirement
+            .add(SPEARMINT_TEST_PARAMETERS_1.alphaFee)
+            .add(SPEARMINT_TEST_PARAMETERS_1.premium);
+        this.omegaDeposit =
+          SPEARMINT_TEST_PARAMETERS_1.omegaCollateralRequirement.add(
+            SPEARMINT_TEST_PARAMETERS_1.omegaFee
+          );
+      } else {
+        this.alphaDeposit =
+          SPEARMINT_TEST_PARAMETERS_1.alphaCollateralRequirement.add(
+            SPEARMINT_TEST_PARAMETERS_1.alphaFee
+          );
+        this.omegaDeposit =
+          SPEARMINT_TEST_PARAMETERS_1.omegaCollateralRequirement
+            .add(SPEARMINT_TEST_PARAMETERS_1.omegaFee)
+            .add(SPEARMINT_TEST_PARAMETERS_1.premium.mul(-1));
+      }
       this.alphaPersonalPool = await this.CollateralManager.personalPools(
         this.alice.address
       );
@@ -140,7 +146,7 @@ describe("SPEARMINT", () => {
       expect(await this.Basis.balanceOf(this.omegaPersonalPool)).to.equal(
         //if premium is positive, omega gets it
         this.omegaDeposit
-          .add(SPEARMINT_TEST_PARAMETERS_1.premium) 
+          .add(SPEARMINT_TEST_PARAMETERS_1.premium)
           .sub(SPEARMINT_TEST_PARAMETERS_1.omegaFee)
       );
       //if premium is negative, alpha gets it
@@ -151,7 +157,6 @@ describe("SPEARMINT", () => {
       );
     });
   });
-
 
   describe("Signature authentication", () => {
     beforeEach(async () => {
@@ -223,7 +228,6 @@ describe("SPEARMINT", () => {
       ).to.be.revertedWith("SPEARMINT: Alpha signature invalid");
     });
   });
-
 
   describe("Nonces and Events", () => {
     beforeEach(async () => {
@@ -342,91 +346,17 @@ describe("SPEARMINT", () => {
       ).to.be.revertedWith("TFM: Oracle nonce has expired");
     });
 
-    it("should allow updating the oracleNonce", async() => {
-      this.oracleSig = await setNonce(this.TFM,this.oracle,2)
-      await expect(this.TFM.updateOracleNonce(2,this.oracleSig)).to.emit(this.TFM,"OracleNonceUpdated").withArgs(2)
-      await expect(this.TFM.spearmint(this.res.spearmintTerms,this.sp)).to.be.revertedWith("TFM: Oracle nonce has expired")
-      await expect(this.TFM.updateOracleNonce(1,this.oracleSig)).to.be.revertedWith("TFM: Oracle nonce can only be increased")
-    })
+    it("should allow updating the oracleNonce", async () => {
+      this.oracleSig = await setNonce(this.TFM, this.oracle, 2);
+      await expect(this.TFM.updateOracleNonce(2, this.oracleSig))
+        .to.emit(this.TFM, "OracleNonceUpdated")
+        .withArgs(2);
+      await expect(
+        this.TFM.spearmint(this.res.spearmintTerms, this.sp)
+      ).to.be.revertedWith("TFM: Oracle nonce has expired");
+      await expect(
+        this.TFM.updateOracleNonce(1, this.oracleSig)
+      ).to.be.revertedWith("TFM: Oracle nonce can only be increased");
+    });
   });
-
-  //this.sp1 = await signSpearmintParameters(
-//   this.alice,
-//   this.bob,
-//   this.res.oracleSignature,
-//   SPEARMINT_TEST_PARAMETERS_1.premium,
-//   SPEARMINT_TEST_PARAMETERS_1.transferable,
-//   this.TFM
-// );
-// await this.TFM.spearmint(this.res.spearmintTerms, this.sp1);
-// const mn2 = await this.TFM.getMintNonce(
-//   this.alice.address,
-//   this.bob.address
-// );
-// expect(mn2).to.equal(2);
-  // it("should correctly increase strategy and mintNonce counters", async () => {
-  //   await this.TFM.spearmint(res.spearMintTerms, sp.spearmintParameters);
-
-  //   const strategyId = await this.TFM.strategyCounter();
-  //   expect(strategyId).to.equal(1);
-  //   await spearmint(
-  //     this.alice,
-  //     this.bob,
-  //     premium,
-  //     false,
-  //     this.TFM,
-  //     this.owner,
-  //     1234,
-  //     this.eth,
-  //     this.basis.address,
-  //     this.basis.address,
-  //     1,
-  //     [[1, 10]],
-  //     alphaCollateralRequirement,
-  //     omegaCollateralRequirement,
-  //     alphaFee,
-  //     omegaFee
-  //   );
-  //   const strategyId2 = await this.TFM.strategyCounter();
-  //   expect(strategyId2).to.equal(2);
-  //   let mintNonce = await this.TFM.getMintNonce(
-  //     this.alice.address,
-  //     this.bob.address
-  //   );
-  //   expect(mintNonce).to.equal(2);
-  //   const oracleNonce = await this.TFM.oracleNonce();
-  //   const res1 = await generateSpearmintTerms(
-  //     this.owner,
-  //     16273919,
-  //     200,
-  //     90,
-  //     1,
-  //     4,
-  //     oracleNonce,
-  //     this.eth,
-  //     this.basis.address,
-  //     this.basis.address,
-  //     2000000,
-  //     [[2000000, 14000000]]
-  //   );
-
-  //   const sp1 = await signSpearmintParameters(
-  //     this.alice,
-  //     this.bob,
-  //     res1.trufinOracleSignature,
-  //     this.alice.address,
-  //     this.bob.address,
-  //     100,
-  //     true,
-  //     mintNonce
-  //   );
-
-  //   await expect(
-  //     this.TFM.spearmint(res1.spearMintTerms, sp1.spearmintParameters)
-  //   )
-  //     .to.emit(this.TFM, "Spearmint")
-  //     .withArgs(2);
-  // });
-
-  
 });
