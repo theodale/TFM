@@ -1,23 +1,17 @@
 const { ethers, upgrades } = require("hardhat");
 
-async function testDeployment() {
+// Deploys a fresh set of protocol contracts for use in testing
+async function freshDeployment() {
   const [owner, oracle, alice, bob, carol] = await ethers.getSigners();
 
   // Deploy Utils library
   const UtilsFactory = await ethers.getContractFactory("Utils");
   const Utils = await UtilsFactory.deploy();
 
-  // Logic contract factories
-  const TFMFactory = await ethers.getContractFactory("TFM", {
-    libraries: {
-      Utils: Utils.address,
-    },
-  });
+  // Deploy CollateralManager
   const CollateralManagerFactory = await ethers.getContractFactory(
     "CollateralManager"
   );
-
-  // Deploy proxies and implementation contracts
   const CollateralManager = await upgrades.deployProxy(
     CollateralManagerFactory,
     [owner.address, owner.address],
@@ -26,6 +20,12 @@ async function testDeployment() {
     }
   );
 
+  // Deploy TFM
+  const TFMFactory = await ethers.getContractFactory("TFM", {
+    libraries: {
+      Utils: Utils.address,
+    },
+  });
   const TFM = await upgrades.deployProxy(
     TFMFactory,
     [CollateralManager.address, owner.address, owner.address, oracle.address],
@@ -39,6 +39,7 @@ async function testDeployment() {
 
   const MockERC20Factory = await ethers.getContractFactory("MockERC20");
 
+  // Deploy mock tokens
   const BRA = await MockERC20Factory.deploy();
   const KET = await MockERC20Factory.deploy();
   const Basis = await MockERC20Factory.deploy();
@@ -59,5 +60,5 @@ async function testDeployment() {
 }
 
 module.exports = {
-  testDeployment,
+  freshDeployment,
 };

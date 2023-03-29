@@ -14,12 +14,7 @@ import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
-contract CollateralManager is
-    ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
-    ICollateralManager,
-    UUPSUpgradeable
-{
+contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, ICollateralManager, UUPSUpgradeable {
     // *** LIBRARIES ***
 
     using SafeERC20 for IERC20;
@@ -41,8 +36,7 @@ contract CollateralManager is
 
     // Records how many unallocated basis tokens a user has available to provide as collateral
     // Maps user address => token address => amount of tokens
-    mapping(address => mapping(address => uint256))
-        public unallocatedCollateral;
+    mapping(address => mapping(address => uint256)) public unallocatedCollateral;
 
     /// *** MODIFIERS ***
 
@@ -53,10 +47,7 @@ contract CollateralManager is
 
     // *** INITIALIZER ***
 
-    function initialize(
-        address _treasury,
-        address _owner
-    ) external initializer {
+    function initialize(address _treasury, address _owner) external initializer {
         // Initialize parent state
         __ReentrancyGuard_init();
         __Ownable_init();
@@ -116,22 +107,11 @@ contract CollateralManager is
         address payable alphaPool = _getPersonalPool(_alpha);
         address payable omegaPool = _getPersonalPool(_omega);
 
-        _transferPremium(
-            _alpha,
-            _omega,
-            alphaPool,
-            omegaPool,
-            _basis,
-            _premium
-        );
+        _transferPremium(_alpha, _omega, alphaPool, omegaPool, _basis, _premium);
 
         // Take fee and required collateral from unallocated minter collateral
-        unallocatedCollateral[_alpha][_basis] -=
-            _alphaCollateralRequirement +
-            _alphaFee;
-        unallocatedCollateral[_omega][_basis] -=
-            _omegaCollateralRequirement +
-            _omegaFee;
+        unallocatedCollateral[_alpha][_basis] -= _alphaCollateralRequirement + _alphaFee;
+        unallocatedCollateral[_omega][_basis] -= _omegaCollateralRequirement + _omegaFee;
 
         // Allocate required collateral to the new strategy
         allocatedCollateral[_alpha][_strategyId] += _alphaCollateralRequirement;
@@ -161,28 +141,15 @@ contract CollateralManager is
         address payable senderPool = _getPersonalPool(_sender);
         address payable recipientPool = _getPersonalPool(_recipient);
 
-        _transferPremium(
-            _sender,
-            _recipient,
-            senderPool,
-            recipientPool,
-            _basis,
-            _premium
-        );
+        _transferPremium(_sender, _recipient, senderPool, recipientPool, _basis, _premium);
 
         // Unallocate collateral sender has allocated to the strategy
-        unallocatedCollateral[_sender][_basis] += allocatedCollateral[_sender][
-            _strategyId
-        ];
+        unallocatedCollateral[_sender][_basis] += allocatedCollateral[_sender][_strategyId];
         allocatedCollateral[_sender][_strategyId] = 0;
 
         // Allocate recipient's collateral to the strategy
-        unallocatedCollateral[_recipient][
-            _basis
-        ] -= recipientCollateralRequirement;
-        allocatedCollateral[_recipient][
-            _strategyId
-        ] += recipientCollateralRequirement;
+        unallocatedCollateral[_recipient][_basis] -= recipientCollateralRequirement;
+        allocatedCollateral[_recipient][_strategyId] += recipientCollateralRequirement;
 
         // Register fee payment
         unallocatedCollateral[_sender][_basis] -= _senderFee;
@@ -190,12 +157,7 @@ contract CollateralManager is
 
         // Take protocol fee
         _transferFromPersonalPool(senderPool, _basis, treasury, _senderFee);
-        _transferFromPersonalPool(
-            recipientPool,
-            _basis,
-            treasury,
-            _recipientFee
-        );
+        _transferFromPersonalPool(recipientPool, _basis, treasury, _recipientFee);
     }
 
     // Aligned is not needed => as allocated maps user address => strategy ID => amount of tokens
@@ -211,24 +173,16 @@ contract CollateralManager is
         uint256 _strategyOneOmegaFee
     ) external tfmOnly {
         // Get each combiners available collateral for their position on the combined strategy
-        uint256 availableStrategyOneAlpha = unallocatedCollateral[
-            _strategyOneAlpha
-        ][_basis] +
+        uint256 availableStrategyOneAlpha = unallocatedCollateral[_strategyOneAlpha][_basis] +
             allocatedCollateral[_strategyOneAlpha][_strategyOneId] +
             allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
-        uint256 availableStrategyOneOmega = unallocatedCollateral[
-            _strategyOneOmega
-        ][_basis] +
+        uint256 availableStrategyOneOmega = unallocatedCollateral[_strategyOneOmega][_basis] +
             allocatedCollateral[_strategyOneOmega][_strategyOneId] +
             allocatedCollateral[_strategyOneOmega][_strategyTwoId];
 
         // Set strategy one allocations
-        allocatedCollateral[_strategyOneAlpha][
-            _strategyOneId
-        ] = _resultingAlphaCollateralRequirement;
-        allocatedCollateral[_strategyOneOmega][
-            _strategyTwoId
-        ] = _resultingOmegaCollateralRequirement;
+        allocatedCollateral[_strategyOneAlpha][_strategyOneId] = _resultingAlphaCollateralRequirement;
+        allocatedCollateral[_strategyOneOmega][_strategyTwoId] = _resultingOmegaCollateralRequirement;
 
         // Set unallocated collateral
         unallocatedCollateral[_strategyOneAlpha][_basis] =
@@ -240,23 +194,16 @@ contract CollateralManager is
             _resultingOmegaCollateralRequirement -
             _strategyOneOmegaFee;
 
-        _transferFromUsersPool(
-            _strategyOneAlpha,
-            _basis,
-            treasury,
-            _strategyOneAlphaFee
-        );
+        _transferFromUsersPool(_strategyOneAlpha, _basis, treasury, _strategyOneAlphaFee);
 
-        _transferFromUsersPool(
-            _strategyOneOmega,
-            _basis,
-            treasury,
-            _strategyOneOmegaFee
-        );
+        _transferFromUsersPool(_strategyOneOmega, _basis, treasury, _strategyOneOmegaFee);
 
         delete allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
         delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
+
+    // Do we want fees?
+    // Do we want two step
 
     // Potential DoS if opposition does not have enough allocated collateral - if the fee is greater than their post payout collateral
     function exercise(
@@ -270,35 +217,26 @@ contract CollateralManager is
     ) external tfmOnly {
         // Transfer payout and unallocate all remaining collateral
         if (_payout > 0) {
-            unallocatedCollateral[_alpha][_basis] =
-                allocatedCollateral[_alpha][_strategyId] -
-                uint256(_payout);
-            unallocatedCollateral[_omega][_basis] +=
-                uint256(_payout) +
-                allocatedCollateral[_omega][_strategyId];
+            unallocatedCollateral[_alpha][_basis] = allocatedCollateral[_alpha][_strategyId] - uint256(_payout);
+            unallocatedCollateral[_omega][_basis] += uint256(_payout) + allocatedCollateral[_omega][_strategyId];
+
+            _transferBetweenUsers(_alpha, _omega, _basis, uint256(_payout));
         } else {
-            unallocatedCollateral[_alpha][_basis] +=
-                uint256(-_payout) +
-                allocatedCollateral[_alpha][_strategyId];
-            unallocatedCollateral[_omega][_basis] =
-                allocatedCollateral[_omega][_strategyId] -
-                uint256(-_payout);
+            // What if they already have unallocated collateral in their basket
+            unallocatedCollateral[_alpha][_basis] += uint256(-_payout) + allocatedCollateral[_alpha][_strategyId];
+            unallocatedCollateral[_omega][_basis] = allocatedCollateral[_omega][_strategyId] - uint256(-_payout);
+
+            _transferBetweenUsers(_omega, _alpha, _basis, uint256(-_payout));
         }
 
-        // address alphaPool = _getPersonalPool();
-
-        // Take fees
-        unallocatedCollateral[_alpha][_basis] -= _alphaFee;
-        unallocatedCollateral[_omega][_basis] -= _omegaFee;
-
-        // Still need to transfer premium and fees from user pools
+        // Take fees - do we have fees?
+        // unallocatedCollateral[_alpha][_basis] -= _alphaFee;
+        // unallocatedCollateral[_omega][_basis] -= _omegaFee;
 
         // Delete state to add gas reduction
         allocatedCollateral[_alpha][_strategyId] = 0;
         allocatedCollateral[_omega][_strategyId] = 0;
     }
-
-    // LIQUIDATE
 
     // LIQUIDATE
 
@@ -369,9 +307,7 @@ contract CollateralManager is
     /// *** INTERNAL METHODS ***
 
     // Possibly refactor in future => we may be able to assume that a personal pool already exists for the user in certain scenarios
-    function _getPersonalPool(
-        address _user
-    ) internal returns (address payable) {
+    function _getPersonalPool(address _user) internal returns (address payable) {
         address payable personalPool = personalPools[_user];
 
         // Deploy new personal pool for user if they have not got one
@@ -395,16 +331,22 @@ contract CollateralManager is
     }
 
     // Transfers ERC20 tokens from a user's personal pool to a recipient
-    function _transferFromUsersPool(
-        address _user,
-        address _token,
-        address _recipient,
-        uint256 _amount
-    ) internal {
+    function _transferFromUsersPool(address _user, address _token, address _recipient, uint256 _amount) internal {
         address payable pool = _getPersonalPool(_user);
 
         PersonalPool(pool).transferERC20(_token, _recipient, _amount);
     }
+
+    // Transfer ERC20 tokens from one pool to another
+    function _transferBetweenUsers(address _userOne, address _userTwo, address _basis, uint256 _amount) internal {
+        address payable userOnePool = _getPersonalPool(_userOne);
+        address payable userTwoPool = _getPersonalPool(_userTwo);
+
+        PersonalPool(userOnePool).transferERC20(_basis, userTwoPool, _amount);
+    }
+
+    // Same as above but takes in pools instead of addresses
+    // function _transferBetweenPools()
 
     // Execute a premium transfer between two parties
     function _transferPremium(
@@ -416,20 +358,12 @@ contract CollateralManager is
         int256 _premium
     ) internal {
         if (_premium > 0) {
-            PersonalPool(_partyOnePool).transferERC20(
-                _basis,
-                _partyTwoPool,
-                uint256(_premium)
-            );
+            PersonalPool(_partyOnePool).transferERC20(_basis, _partyTwoPool, uint256(_premium));
 
             unallocatedCollateral[_partyOne][_basis] -= uint256(_premium);
             unallocatedCollateral[_partyTwo][_basis] += uint256(_premium);
         } else if (_premium < 0) {
-            PersonalPool(_partyTwoPool).transferERC20(
-                _basis,
-                _partyOnePool,
-                uint256(-_premium)
-            );
+            PersonalPool(_partyTwoPool).transferERC20(_basis, _partyOnePool, uint256(-_premium));
 
             unallocatedCollateral[_partyOne][_basis] += uint256(-_premium);
             unallocatedCollateral[_partyTwo][_basis] -= uint256(-_premium);

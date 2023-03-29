@@ -15,12 +15,7 @@ import "hardhat/console.sol";
 
 // ******************** THE FIELD MACHINE ********************
 // A peer-to-peer options trading base layer
-contract TFM is
-    ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
-    UUPSUpgradeable,
-    ITFM
-{
+contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable, ITFM {
     // *** STATE VARIABLES ***
 
     // Signs and validates data packages
@@ -80,10 +75,7 @@ contract TFM is
     // *** GETTERS ***
 
     // Returns the mint nonce of a pair of users
-    function getMintNonce(
-        address partyOne,
-        address partyTwo
-    ) public view returns (uint256) {
+    function getMintNonce(address partyOne, address partyTwo) public view returns (uint256) {
         if (partyOne < partyTwo) {
             return mintNonce[partyOne][partyTwo];
         } else {
@@ -92,9 +84,7 @@ contract TFM is
     }
 
     // Read a strategy with a certain ID
-    function getStrategy(
-        uint256 _strategyID
-    ) external view returns (Strategy memory) {
+    function getStrategy(uint256 _strategyID) external view returns (Strategy memory) {
         return strategies[_strategyID];
     }
 
@@ -104,29 +94,17 @@ contract TFM is
         liquidator = _liquidator;
     }
 
-    function setCollateralManager(
-        address _collateralManager
-    ) external onlyOwner {
+    function setCollateralManager(address _collateralManager) external onlyOwner {
         collateralManager = ICollateralManager(_collateralManager);
     }
 
     // *** STRATEGY ACTIONS ***
 
     // Mint a new strategy
-    function spearmint(
-        SpearmintTerms calldata _terms,
-        SpearmintParameters calldata _parameters
-    ) external {
-        Utils.validateSpearmintTerms(
-            _terms,
-            _parameters.oracleSignature,
-            trufinOracle
-        );
+    function spearmint(SpearmintTerms calldata _terms, SpearmintParameters calldata _parameters) external {
+        Utils.validateSpearmintTerms(_terms, _parameters.oracleSignature, trufinOracle);
 
-        Utils.ensureSpearmintApprovals(
-            _parameters,
-            getMintNonce(_parameters.alpha, _parameters.omega)
-        );
+        Utils.ensureSpearmintApprovals(_parameters, getMintNonce(_parameters.alpha, _parameters.omega));
 
         _checkOracleNonce(_terms.oracleNonce);
 
@@ -153,27 +131,14 @@ contract TFM is
 
     // Transfer a strategy position
     // Ensure correct collateral and security flow when trasnferring to self
-    function transfer(
-        TransferTerms calldata _terms,
-        TransferParameters calldata _parameters
-    ) external {
+    function transfer(TransferTerms calldata _terms, TransferParameters calldata _parameters) external {
         Strategy storage strategy = strategies[_parameters.strategyId];
 
-        Utils.validateTransferTerms(
-            _terms,
-            strategy,
-            trufinOracle,
-            _parameters.oracleSignature
-        );
+        Utils.validateTransferTerms(_terms, strategy, trufinOracle, _parameters.oracleSignature);
 
         address sender = _terms.alphaTransfer ? strategy.alpha : strategy.omega;
 
-        Utils.ensureTransferApprovals(
-            _parameters,
-            strategy,
-            sender,
-            _terms.alphaTransfer
-        );
+        Utils.ensureTransferApprovals(_parameters, strategy, sender, _terms.alphaTransfer);
 
         _checkOracleNonce(_terms.oracleNonce);
 
@@ -204,10 +169,7 @@ contract TFM is
     // Combine two strategies into one
     // We delete one strategy (strategyTwo) and overwrite the other (strategyOne) into the new combined strategy
     // This combined strategy has strategyOne's alpha and omega  => terms offered for this direction
-    function combine(
-        CombinationTerms calldata _terms,
-        CombinationParameters calldata _parameters
-    ) external {
+    function combine(CombinationTerms calldata _terms, CombinationParameters calldata _parameters) external {
         Strategy storage strategyOne = strategies[_parameters.strategyOneId];
         Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
 
@@ -223,13 +185,7 @@ contract TFM is
             _parameters.oracleSignature
         );
 
-        Utils.validateCombinationTerms(
-            _terms,
-            strategyOne,
-            strategyTwo,
-            trufinOracle,
-            _parameters.oracleSignature
-        );
+        Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
 
         collateralManager.combine(
             _parameters.strategyOneId,
@@ -255,20 +211,12 @@ contract TFM is
     // Call to finalise a position on a strategy
     // Unallocates collateral not used for a payout
     // No alpha/omega split like in trufin_v2
-    function exercise(
-        ExerciseTerms calldata _terms,
-        ExerciseParameters calldata _parameters
-    ) external {
+    function exercise(ExerciseTerms calldata _terms, ExerciseParameters calldata _parameters) external {
         _checkOracleNonce(_terms.oracleNonce);
 
         Strategy storage strategy = strategies[_parameters.strategyId];
 
-        Utils.validateExerciseTerms(
-            _terms,
-            strategy,
-            trufinOracle,
-            _parameters.oracleSignature
-        );
+        Utils.validateExerciseTerms(_terms, strategy, trufinOracle, _parameters.oracleSignature);
 
         collateralManager.exercise(
             _parameters.strategyId,
@@ -280,27 +228,17 @@ contract TFM is
             _terms.omegaFee
         );
 
-        delete strategies[_parameters.strategyId];
+        _deleteStrategy(_parameters.strategyId);
 
         emit Exercise(_parameters.strategyId);
     }
 
     //@tiff review: do we not only want to let the relayer update the oracle nonce after expiry time?
-    function updateOracleNonce(
-        uint256 _oracleNonce,
-        bytes calldata _oracleSignature
-    ) external {
+    function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
         // Prevents replay of out-of-date signatures
-        require(
-            _oracleNonce > oracleNonce,
-            "TFM: Oracle nonce can only be increased"
-        );
+        require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
 
-        Utils.validateOracleNonceUpdate(
-            _oracleNonce,
-            _oracleSignature,
-            trufinOracle
-        );
+        Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, trufinOracle);
 
         // Perform state update
         oracleNonce = _oracleNonce;
@@ -311,22 +249,13 @@ contract TFM is
 
     // *** LIQUIDATION ***
 
-    function liquidate(
-        LiquidationTerms calldata _terms,
-        LiquidationParameters calldata _params
-    ) external {
+    function liquidate(LiquidationTerms calldata _terms, LiquidationParameters calldata _params) external {
         require(msg.sender == liquidator, "TFM: Liquidator only");
 
         Strategy storage strategy = strategies[_params.strategyId];
 
-        uint256 alphaInitialCollateral = collateralManager.allocatedCollateral(
-            strategy.alpha,
-            _params.strategyId
-        );
-        uint256 omegaInitialCollateral = collateralManager.allocatedCollateral(
-            strategy.omega,
-            _params.strategyId
-        );
+        uint256 alphaInitialCollateral = collateralManager.allocatedCollateral(strategy.alpha, _params.strategyId);
+        uint256 omegaInitialCollateral = collateralManager.allocatedCollateral(strategy.omega, _params.strategyId);
 
         Utils.validateLiquidationTerms(
             _terms,
@@ -388,10 +317,7 @@ contract TFM is
     // Performs oracle nonce-related checks
     function _checkOracleNonce(uint256 _oracleNonce) internal view {
         // Check whether input nonce is outdated
-        require(
-            (_oracleNonce <= oracleNonce) && (oracleNonce - _oracleNonce <= 1),
-            "TFM: Oracle nonce has expired"
-        );
+        require((_oracleNonce <= oracleNonce) && (oracleNonce - _oracleNonce <= 1), "TFM: Oracle nonce has expired");
 
         // Check whether contract is locked due to oracle nonce not being updated
         require(

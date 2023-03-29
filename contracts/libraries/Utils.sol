@@ -18,10 +18,7 @@ library Utils {
     // SPEARMINT
 
     // Checks that alpha and omega have provided signatures to authorise the spearmint
-    function ensureSpearmintApprovals(
-        SpearmintParameters calldata _parameters,
-        uint256 _mintNonce
-    ) external view {
+    function ensureSpearmintApprovals(SpearmintParameters calldata _parameters, uint256 _mintNonce) external view {
         bytes memory message = abi.encodePacked(
             _parameters.oracleSignature,
             _parameters.alpha,
@@ -34,20 +31,12 @@ library Utils {
         bytes32 hash = _generateMessageHash(message);
 
         require(
-            _isValidSignature(
-                hash,
-                _parameters.alphaSignature,
-                _parameters.alpha
-            ),
+            _isValidSignature(hash, _parameters.alphaSignature, _parameters.alpha),
             "SPEARMINT: Alpha signature invalid"
         );
 
         require(
-            _isValidSignature(
-                hash,
-                _parameters.omegaSignature,
-                _parameters.omega
-            ),
+            _isValidSignature(hash, _parameters.omegaSignature, _parameters.omega),
             "SPEARMINT: Omega signature invalid"
         );
     }
@@ -71,10 +60,7 @@ library Utils {
             _terms.phase
         );
 
-        require(
-            _isValidSignature(message, _oracleSignature, _oracle),
-            "SPEARMINT: Invalid Trufin oracle signature"
-        );
+        require(_isValidSignature(message, _oracleSignature, _oracle), "SPEARMINT: Invalid Trufin oracle signature");
     }
 
     function ensureTransferApprovals(
@@ -92,32 +78,19 @@ library Utils {
 
         bytes32 hash = _generateMessageHash(message);
 
-        require(
-            _isValidSignature(hash, _parameters.senderSignature, _sender),
-            "TRANSFER: Sender signature invalid"
-        );
+        require(_isValidSignature(hash, _parameters.senderSignature, _sender), "TRANSFER: Sender signature invalid");
 
         require(
-            _isValidSignature(
-                hash,
-                _parameters.recipientSignature,
-                _parameters.recipient
-            ),
+            _isValidSignature(hash, _parameters.recipientSignature, _parameters.recipient),
             "TRANSFER: Recipient signature invalid"
         );
 
         // Check non-transferring party's signature if strategy is not transferable
         if (!_strategy.transferable) {
-            address staticParty = alphaTransfer
-                ? _strategy.omega
-                : _strategy.alpha;
+            address staticParty = alphaTransfer ? _strategy.omega : _strategy.alpha;
 
             require(
-                _isValidSignature(
-                    hash,
-                    _parameters.staticPartySignature,
-                    staticParty
-                ),
+                _isValidSignature(hash, _parameters.staticPartySignature, staticParty),
                 "Static party signature invalid"
             );
         }
@@ -143,10 +116,7 @@ library Utils {
             _terms.oracleNonce
         );
 
-        require(
-            _isValidSignature(message, _oracleSignature, _oracle),
-            "TRANSFER: Invalid Trufin oracle signature"
-        );
+        require(_isValidSignature(message, _oracleSignature, _oracle), "TRANSFER: Invalid Trufin oracle signature");
     }
 
     // COMBINATION
@@ -171,20 +141,12 @@ library Utils {
         bytes32 hash = _generateMessageHash(message);
 
         require(
-            _isValidSignature(
-                hash,
-                _strategyOneAlphaSignature,
-                _strategyOne.alpha
-            ),
+            _isValidSignature(hash, _strategyOneAlphaSignature, _strategyOne.alpha),
             "TFM: Invalid strategy two alpha signature"
         );
 
         require(
-            _isValidSignature(
-                hash,
-                _strategyOneOmegaSignature,
-                _strategyOne.omega
-            ),
+            _isValidSignature(hash, _strategyOneOmegaSignature, _strategyOne.omega),
             "TFM: Invalid strategy one omega signature"
         );
     }
@@ -198,7 +160,7 @@ library Utils {
     ) external view {
         console.log("Validating combination terms");
 
-        bool aligned = _getAlignement(_strategyOne, _strategyTwo);
+        bool aligned = _getAlignment(_strategyOne, _strategyTwo);
 
         bytes memory message = abi.encodePacked(
             abi.encodePacked(
@@ -222,17 +184,10 @@ library Utils {
                 _terms.resultingOmegaCollateralRequirement,
                 _terms.resultingPhase
             ),
-            abi.encodePacked(
-                _terms.resultingAmplitude,
-                _terms.oracleNonce,
-                aligned
-            )
+            abi.encodePacked(_terms.resultingAmplitude, _terms.oracleNonce, aligned)
         );
 
-        require(
-            _isValidSignature(message, _oracleSignature, _oracle),
-            "COMBINATION: Invalid Trufin oracle signature"
-        );
+        require(_isValidSignature(message, _oracleSignature, _oracle), "COMBINATION: Invalid Trufin oracle signature");
     }
 
     // EXERCISE
@@ -256,10 +211,7 @@ library Utils {
             _terms.payout
         );
 
-        require(
-            _isValidSignature(message, _oracleSignature, _oracle),
-            "EXERCISE: Invalid Trufin oracle signature"
-        );
+        require(_isValidSignature(message, _oracleSignature, _oracle), "EXERCISE: Invalid Trufin oracle signature");
     }
 
     // LIQUIDATE
@@ -292,31 +244,20 @@ library Utils {
             )
         );
 
-        require(
-            _isValidSignature(message, _oracleSignature, _oracle),
-            "LIQUIDATE: Invalid Trufin oracle signature"
-        );
+        require(_isValidSignature(message, _oracleSignature, _oracle), "LIQUIDATE: Invalid Trufin oracle signature");
     }
 
     // Could inline this if not reused
-    function _getAlignement(
+    function _getAlignment(
         Strategy storage _strategyOne,
         Strategy storage _strategyTwo
     ) internal view returns (bool aligned) {
-        if (
-            _strategyOne.alpha == _strategyTwo.alpha &&
-            _strategyOne.omega == _strategyTwo.omega
-        ) {
+        if (_strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega) {
             aligned = true;
-        } else if (
-            _strategyOne.omega == _strategyTwo.alpha &&
-            _strategyOne.omega == _strategyTwo.alpha
-        ) {
+        } else if (_strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha) {
             aligned = false;
         } else {
-            revert(
-                "COMBINATION: Strategies are not shared between two parties"
-            );
+            revert("COMBINATION: Strategies are not shared between two parties");
         }
     }
 
@@ -336,23 +277,13 @@ library Utils {
     }
 
     // Hashes a message and returns it in EIP-191 format
-    function _generateMessageHash(
-        bytes memory message
-    ) internal pure returns (bytes32) {
+    function _generateMessageHash(bytes memory message) internal pure returns (bytes32) {
         return ECDSA.toEthSignedMessageHash(keccak256(message));
     }
 
     // Checks if a message hash hash been signed by a specific address
-    function _isValidSignature(
-        bytes32 _hash,
-        bytes memory _signature,
-        address _signer
-    ) internal view returns (bool) {
-        bool valid = SignatureChecker.isValidSignatureNow(
-            _signer,
-            _hash,
-            _signature
-        );
+    function _isValidSignature(bytes32 _hash, bytes memory _signature, address _signer) internal view returns (bool) {
+        bool valid = SignatureChecker.isValidSignatureNow(_signer, _hash, _signature);
 
         return valid;
     }

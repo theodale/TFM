@@ -1,6 +1,10 @@
 const { ethers } = require("hardhat");
 
-const signSpearmintParameters = async (
+// This file contains functions for signing sets of TFM action parameters
+// These signatures are used to verify that an account has authorized an action
+// The functions return objects that can be passed to the TFM contract as the relevant parameter struct
+
+const signSpearmint = async (
   alpha,
   omega,
   trufinOracleSignature,
@@ -38,7 +42,7 @@ const signSpearmintParameters = async (
   return spearmintParameters;
 };
 
-const signTransferParameters = async (
+const signTransfer = async (
   sender,
   recipient,
   staticParty,
@@ -75,6 +79,6 @@ const signTransferParameters = async (
 };
 
 module.exports = {
-  signSpearmintParameters,
-  signTransferParameters,
+  signSpearmint,
+  signTransfer,
 };
