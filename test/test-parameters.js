@@ -22,11 +22,16 @@ const EXERCISE_ONE = {
   omegaFee: ethers.utils.parseEther("0.01"),
 };
 
+const LIQUDATION_ONE = {
+  compensation: ethers.utils.parseEther("0.1"),
+  alphaFee: ethers.utils.parseEther("0.01"),
+  omegaFee: ethers.utils.parseEther("0.01"),
+  postLiquidationAmplitude: ethers.utils.parseEther("5"),
+};
+
 module.exports = {
   STRATEGY_ONE,
   SPEARMINT_ONE,
   EXERCISE_ONE,
+  LIQUDATION_ONE,
 };
-
-// other files => e.g. prettierrc
-// Other extensions + tools etc

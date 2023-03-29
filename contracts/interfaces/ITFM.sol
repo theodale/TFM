@@ -17,7 +17,7 @@ interface ITFM {
 
     event Exercise(uint256 strategyId);
 
-    event Liquidate(uint256 strategyId);
+    event Liquidated(uint256 strategyId);
 
     event OracleNonceUpdated(uint256 oracleNonce);
 }

@@ -173,80 +173,78 @@ const getExerciseTerms = async (
   return { oracleSignature, exerciseTerms };
 };
 
-// const getLiquidationTerms = async (
-//   TFM,
-//   collateralManager,
-//   oracle,
-//   strategyId,
-//   payout,
-//   alphaFee,
-//   omegaFee
-// ) => {
-//   const oracleNonce = await TFM.oracleNonce();
+const getLiquidationTerms = async (
+  TFM,
+  collateralManager,
+  oracle,
+  strategyId,
+  compensation,
+  alphaFee,
+  omegaFee,
+  postLiquidationAmplitude
+) => {
+  const oracleNonce = await TFM.oracleNonce();
 
-//   const strategy = await TFM.getStrategy(strategyId);
+  const strategy = await TFM.getStrategy(strategyId);
 
-//   const alphaInitialAllocation = collateralManager.allocatedCollateral(
-//     strategyId,
-//     strategy.alpha
-//   );
-//   const omegaInitialAllocation = collateralManager.allocatedCollateral(
-//     strategyId,
-//     strategy.omega
-//   );
+  const alphaInitialAllocation = await collateralManager.allocatedCollateral(
+    strategy.alpha,
+    strategyId
+  );
+  const omegaInitialAllocation = await collateralManager.allocatedCollateral(
+    strategy.omega,
+    strategyId
+  );
 
-//   const hash = ethers.utils.solidityKeccak256(
-//     [
-//       "uint256",
-//       "address",
-//       "address",
-//       "address",
-//       "int256",
-//       "int256[2][]",
-//       "uint256",
-//       "uint256",
-//       "uint256",
-//       "int256",
-//     ],
-//     [
-//       strategy.expiry,
-//       strategy.bra,
-//       strategy.ket,
-//       strategy.basis,
-//       strategy.amplitude,
-//       strategy.phase,
-//       senderFee,
-//       oracleNonce,
+  const hash = ethers.utils.solidityKeccak256(
+    [
+      "uint256",
+      "address",
+      "address",
+      "address",
+      "int256",
+      "int256[2][]",
+      "uint256",
+      "int256",
+      "uint256",
+      "uint256",
+      "int256",
+      "uint256",
+      "uint256",
+    ],
+    [
+      strategy.expiry,
+      strategy.bra,
+      strategy.ket,
+      strategy.basis,
+      strategy.amplitude,
+      strategy.phase,
+      oracleNonce,
+      compensation,
+      alphaFee,
+      omegaFee,
+      postLiquidationAmplitude,
+      alphaInitialAllocation,
+      omegaInitialAllocation,
+    ]
+  );
 
-//       payout,
-//     ]
-//   );
+  const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-//   // _strategy.expiry,
-//   // _strategy.bra,
-//   // _strategy.ket,
-//   // _strategy.basis,
-//   // _strategy.amplitude,
-//   // _strategy.phase,
-//   // _terms.oracleNonce,
-//   // _terms.alphaFee,
-//   // _terms.omegaFee,
-//   // _terms.payout
+  const liquidationTerms = {
+    oracleNonce,
+    compensation,
+    alphaFee,
+    omegaFee,
+    postLiquidationAmplitude,
+  };
 
-//   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
-
-//   const exerciseTerms = {
-//     payout,
-//     oracleNonce,
-//     alphaFee,
-//     omegaFee,
-//   };
-
-//   return { oracleSignature, exerciseTerms };
-// };
+  return { oracleSignature, liquidationTerms };
+};
 
 module.exports = {
   getSpearmintTerms,
   getTransferTerms,
   getExerciseTerms,
+  getLiquidationTerms,
 };

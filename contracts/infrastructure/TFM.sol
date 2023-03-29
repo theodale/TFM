@@ -233,14 +233,13 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Exercise(_parameters.strategyId);
     }
 
-    //@tiff review: do we not only want to let the relayer update the oracle nonce after expiry time?
     function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
         // Prevents replay of out-of-date signatures
         require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
 
         Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, trufinOracle);
 
-        // Perform state update
+        // Perform oracle state update
         oracleNonce = _oracleNonce;
         latestOracleNonceUpdateTime = block.timestamp;
 
@@ -279,7 +278,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
             _terms.omegaFee
         );
 
-        emit Liquidate(_params.strategyId);
+        emit Liquidated(_params.strategyId);
     }
 
     // *** INTERNAL METHODS ***
