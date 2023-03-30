@@ -202,18 +202,13 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
         delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
 
-    // Do we want fees?
-    // Do we want two step
-
     // Potential DoS if opposition does not have enough allocated collateral - if the fee is greater than their post payout collateral
     function exercise(
         uint256 _strategyId,
         address _alpha,
         address _omega,
         address _basis,
-        int256 _payout,
-        uint256 _alphaFee,
-        uint256 _omegaFee
+        int256 _payout
     ) external tfmOnly {
         // Transfer payout and unallocate all remaining collateral
         if (_payout > 0) {
@@ -229,10 +224,6 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
             _transferBetweenUsers(_omega, _alpha, _basis, uint256(-_payout));
         }
 
-        // Take fees - do we have fees?
-        // unallocatedCollateral[_alpha][_basis] -= _alphaFee;
-        // unallocatedCollateral[_omega][_basis] -= _omegaFee;
-
         // Delete state to add gas reduction
         allocatedCollateral[_alpha][_strategyId] = 0;
         allocatedCollateral[_omega][_strategyId] = 0;
@@ -240,6 +231,7 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
 
     // LIQUIDATE
 
+    // Fees are taken from the liquidator's collateral => not from unallocated pool as per usual
     function liquidate(
         uint256 _strategyId,
         address _alpha,
@@ -249,59 +241,40 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
         uint256 _alphaFee,
         uint256 _omegaFee
     ) external {
-        // uint256 alphaAllocatedCollateralReduction;
-        // uint256 omegaAllocatedCollateralReduction;
-        // Fees
-        // if (_liquidationParams.alphaFee > 0) {
-        //     PersonalPool(alphaPool).transferERC20(
-        //         _basis,
-        //         TreasuryAddress,
-        //         _liquidationParams.alphaFee
-        //     );
-        //     alphaAllocatedCollateralReduction += _liquidationParams.alphaFee;
-        // }
-        // if (_liquidationParams.omegaFee > 0) {
-        //     PersonalPool(omegaPool).transferERC20(
-        //         _basis,
-        //         TreasuryAddress,
-        //         _liquidationParams.omegaFee
-        //     );
-        //     omegaAllocatedCollateralReduction += _liquidationParams.omegaFee;
-        // }
-        // Compensations
-        // if (_liquidationParams.alphaCompensation > 0) {
-        //     PersonalPool(omegaPool).transferERC20(
-        //         _basis,
-        //         alphaPool,
-        //         _liquidationParams.alphaCompensation
-        //     );
-        //     omegaAllocatedCollateralReduction += _liquidationParams
-        //         .alphaCompensation;
-        //     unallocatedCollateral[_alpha][_basis] += _liquidationParams
-        //         .alphaCompensation;
-        // }
-        // if (_liquidationParams.omegaCompensation > 0) {
-        //     PersonalPool(alphaPool).transferERC20(
-        //         _basis,
-        //         omegaPool,
-        //         _liquidationParams.omegaCompensation
-        //     );
-        //     alphaAllocatedCollateralReduction += _liquidationParams
-        //         .omegaCompensation;
-        //     unallocatedCollateral[_omega][_basis] += _liquidationParams
-        //         .omegaCompensation;
-        // }
-        // Update allocations
-        // if (alphaAllocatedCollateralReduction > 0) {
-        //     allocatedCollateral[_alpha][
-        //         _strategyId
-        //     ] -= alphaAllocatedCollateralReduction;
-        // }
-        // if (omegaAllocatedCollateralReduction > 0) {
-        //     allocatedCollateral[_omega][
-        //         _strategyId
-        //     ] -= omegaAllocatedCollateralReduction;
-        // }
+        address payable alphaPersonalPool = _getPersonalPool(_alpha);
+        address payable omegaPersonalPool = _getPersonalPool(_omega);
+
+        // Cache to avoid multiple storage writes
+        uint256 alphaAllocatedCollateralReduction;
+        uint256 omegaAllocatedCollateralReduction;
+
+        // Process any compensation
+        if (_compensation > 0) {
+            _transferFromPersonalPool(alphaPersonalPool, _basis, omegaPersonalPool, uint256(_compensation));
+
+            unallocatedCollateral[_omega][_basis] += uint256(_compensation);
+            alphaAllocatedCollateralReduction = uint256(_compensation);
+        } else if (_compensation < 0) {
+            _transferFromPersonalPool(omegaPersonalPool, _basis, alphaPersonalPool, uint256(-_compensation));
+
+            unallocatedCollateral[_alpha][_basis] += uint256(-_compensation);
+            omegaAllocatedCollateralReduction = uint256(-_compensation);
+        }
+
+        // Transfer protocol fees
+        if (_alphaFee > 0) {
+            _transferFromPersonalPool(alphaPersonalPool, _basis, treasury, _alphaFee);
+
+            allocatedCollateral[_alpha][_strategyId] += _alphaFee;
+        }
+        if (_omegaFee > 0) {
+            _transferFromPersonalPool(omegaPersonalPool, _basis, treasury, _omegaFee);
+
+            allocatedCollateral[_omega][_strategyId] += _omegaFee;
+        }
+
+        allocatedCollateral[_alpha][_strategyId] -= alphaAllocatedCollateralReduction;
+        allocatedCollateral[_omega][_strategyId] -= omegaAllocatedCollateralReduction;
     }
 
     /// *** INTERNAL METHODS ***

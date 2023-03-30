@@ -38,16 +38,14 @@ const spearmint = async (
 
   // SPEARMINT
 
-  const oracleNonce = await TFM.oracleNonce();
-
   const { oracleSignature, spearmintTerms } = await getSpearmintTerms(
+    TFM,
     oracle,
     expiry,
     alphaCollateralRequirement,
     omegaCollateralRequirement,
     alphaFee,
     omegaFee,
-    oracleNonce,
     bra,
     ket,
     basis,

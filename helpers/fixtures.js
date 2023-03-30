@@ -2,7 +2,7 @@ const { ethers, upgrades } = require("hardhat");
 
 // Deploys a fresh set of protocol contracts for use in testing
 async function freshDeployment() {
-  const [owner, oracle, alice, bob, carol, liquidator] =
+  const [owner, oracle, alice, bob, carol, liquidator, treasury] =
     await ethers.getSigners();
 
   // Deploy Utils library
@@ -15,7 +15,7 @@ async function freshDeployment() {
   );
   const CollateralManager = await upgrades.deployProxy(
     CollateralManagerFactory,
-    [owner.address, owner.address],
+    [treasury.address, owner.address],
     {
       kind: "uups",
     }
@@ -63,6 +63,7 @@ async function freshDeployment() {
     bob,
     carol,
     liquidator,
+    treasury,
   };
 }
 

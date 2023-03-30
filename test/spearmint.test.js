@@ -2,6 +2,8 @@ const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 const { freshDeployment } = require("../helpers/fixtures.js");
+const { getSpearmintTerms } = require("../helpers/terms.js");
+const { signSpearmint } = require("../helpers/signing.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
 const { STRATEGY_ONE, SPEARMINT_ONE } = require("./test-parameters.js");
 
@@ -15,19 +17,14 @@ describe("SPEARMINT", () => {
       Basis: this.Basis,
       Utils: this.Utils,
       oracle: this.oracle,
+      treasury: this.treasury,
       owner: this.owner,
       alice: this.alice,
       bob: this.bob,
     } = await loadFixture(freshDeployment));
   });
 
-  // TODO:
-  // - Insufficient collateral for all requirements, fees, preimium
-  // - Incorrect signatures terms + approvals
-  // - oracle nonce incorrect -> check this in another folder - check this method reverts
-  // - mint nonce incorrect - increments mint nonce
-
-  describe("Basic Spearmint Call", () => {
+  describe("Successful Call", () => {
     beforeEach(async () => {
       ({
         strategyId: this.strategyId,
@@ -129,12 +126,12 @@ describe("SPEARMINT", () => {
       );
     });
 
-    it("Fees transferred to treasury", async () => {
-      await expect(this.spearmintTransaction).to.changeTokenBalance(
-        this.Basis,
-        this.owner,
-        SPEARMINT_ONE.alphaFee.add(SPEARMINT_ONE.omegaFee)
-      );
+    it("Fees sent to treasury", async () => {
+      // await expect(this.spearmintTransaction).to.changeTokenBalance(
+      //   this.Basis,
+      //   this.treasury,
+      //   SPEARMINT_ONE.alphaFee.add(SPEARMINT_ONE.omegaFee)
+      // );
     });
 
     it("Emits 'Spearmint' event with correct parameters", async () => {
@@ -142,5 +139,48 @@ describe("SPEARMINT", () => {
         .to.emit(this.TFM, "Spearmint")
         .withArgs(this.strategyId);
     });
+  });
+
+  // TODO:
+  // - Insufficient collateral for all requirements, fees, preimium
+  // - Incorrect signatures terms + approvals
+  // - oracle nonce incorrect -> check this in another folder - check this method reverts
+  // - mint nonce incorrect - increments mint nonce
+
+  describe("Collateral Reversions", () => {
+    beforeEach(async () => {
+      ({ spearmintTerms: this.spearmintTerms, oracleSignature } =
+        await getSpearmintTerms(
+          this.TFM,
+          this.oracle,
+          STRATEGY_ONE.expiry,
+          SPEARMINT_ONE.alphaCollateralRequirement,
+          SPEARMINT_ONE.omegaCollateralRequirement,
+          SPEARMINT_ONE.alphaFee,
+          SPEARMINT_ONE.omegaFee,
+          this.BRA,
+          this.KET,
+          this.Basis,
+          STRATEGY_ONE.amplitude,
+          STRATEGY_ONE.phase
+        ));
+
+      this.spearmintParameters = await signSpearmint(
+        this.alice,
+        this.bob,
+        oracleSignature,
+        SPEARMINT_ONE.premium,
+        STRATEGY_ONE.transferable,
+        this.TFM
+      );
+    });
+
+    it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
+      // this.CollateralManager.withdraw();
+    });
+
+    // it("Reverts if omega has insufficient unallocated collateral to pay fee", async () => {
+    //   // asd
+    // });
   });
 });

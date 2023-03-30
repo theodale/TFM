@@ -5,7 +5,6 @@ const STRATEGY_ONE = {
   amplitude: ethers.utils.parseEther("10"),
   phase: [[ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")]],
   transferable: true,
-  payout: ethers.utils.parseEther("0.5"),
 };
 
 const SPEARMINT_ONE = {
@@ -18,11 +17,9 @@ const SPEARMINT_ONE = {
 
 const EXERCISE_ONE = {
   payout: ethers.utils.parseEther("0.5"),
-  alphaFee: ethers.utils.parseEther("0.01"),
-  omegaFee: ethers.utils.parseEther("0.01"),
 };
 
-const LIQUDATION_ONE = {
+const LIQUIDATION_ONE = {
   compensation: ethers.utils.parseEther("0.1"),
   alphaFee: ethers.utils.parseEther("0.01"),
   omegaFee: ethers.utils.parseEther("0.01"),
@@ -33,5 +30,5 @@ module.exports = {
   STRATEGY_ONE,
   SPEARMINT_ONE,
   EXERCISE_ONE,
-  LIQUDATION_ONE,
+  LIQUIDATION_ONE,
 };

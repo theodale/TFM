@@ -158,8 +158,6 @@ library Utils {
         address _oracle,
         bytes calldata _oracleSignature
     ) external view {
-        console.log("Validating combination terms");
-
         bool aligned = _getAlignment(_strategyOne, _strategyTwo);
 
         bytes memory message = abi.encodePacked(
@@ -206,8 +204,6 @@ library Utils {
             _strategy.amplitude,
             _strategy.phase,
             _terms.oracleNonce,
-            _terms.alphaFee,
-            _terms.omegaFee,
             _terms.payout
         );
 

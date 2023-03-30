@@ -6,19 +6,21 @@ const { ethers } = require("hardhat");
 // - a terms object that can be passed as the relevant terms struct to the TFM method in question
 
 const getSpearmintTerms = async (
+  TFM,
   oracle,
   expiry,
   alphaCollateralRequirement,
   omegaCollateralRequirement,
   alphaFee,
   omegaFee,
-  oracleNonce,
   bra,
   ket,
   basis,
   amplitude,
   phase
 ) => {
+  const oracleNonce = await TFM.oracleNonce();
+
   const hash = ethers.utils.solidityKeccak256(
     [
       "uint256",
@@ -122,14 +124,7 @@ const getTransferTerms = async (
   return { oracleSignature, transferTerms };
 };
 
-const getExerciseTerms = async (
-  TFM,
-  oracle,
-  strategyId,
-  payout,
-  alphaFee,
-  omegaFee
-) => {
+const getExerciseTerms = async (TFM, oracle, strategyId, payout) => {
   const oracleNonce = await TFM.oracleNonce();
 
   const strategy = await TFM.getStrategy(strategyId);
@@ -143,8 +138,6 @@ const getExerciseTerms = async (
       "int256",
       "int256[2][]",
       "uint256",
-      "uint256",
-      "uint256",
       "int256",
     ],
     [
@@ -155,8 +148,6 @@ const getExerciseTerms = async (
       strategy.amplitude,
       strategy.phase,
       oracleNonce,
-      alphaFee,
-      omegaFee,
       payout,
     ]
   );
@@ -166,8 +157,6 @@ const getExerciseTerms = async (
   const exerciseTerms = {
     payout,
     oracleNonce,
-    alphaFee,
-    omegaFee,
   };
 
   return { oracleSignature, exerciseTerms };

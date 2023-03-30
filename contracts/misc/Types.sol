@@ -98,8 +98,6 @@ struct ExerciseTerms {
     // If payout is +ve => alpha pays omega, if payout is -ve => omega pays alpha
     int256 payout;
     uint256 oracleNonce;
-    uint256 alphaFee;
-    uint256 omegaFee;
 }
 
 struct ExerciseParameters {

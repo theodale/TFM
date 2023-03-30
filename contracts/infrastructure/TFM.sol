@@ -223,9 +223,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
             strategy.alpha,
             strategy.omega,
             strategy.basis,
-            _terms.payout,
-            _terms.alphaFee,
-            _terms.omegaFee
+            _terms.payout
         );
 
         _deleteStrategy(_parameters.strategyId);

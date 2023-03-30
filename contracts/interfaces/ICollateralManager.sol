@@ -40,15 +40,7 @@ interface ICollateralManager {
         uint256 _strategyOneOmegaFee
     ) external;
 
-    function exercise(
-        uint256 _strategyId,
-        address _alpha,
-        address _omega,
-        address _basis,
-        int256 _payout,
-        uint256 _alphaFee,
-        uint256 _omegaFee
-    ) external;
+    function exercise(uint256 _strategyId, address _alpha, address _omega, address _basis, int256 _payout) external;
 
     function liquidate(
         uint256 _strategyId,
@@ -60,16 +52,9 @@ interface ICollateralManager {
         uint256 _omegaFee
     ) external;
 
-    function allocatedCollateral(
-        address _user,
-        uint256 _strategyId
-    ) external returns (uint256);
+    function allocatedCollateral(address _user, uint256 _strategyId) external returns (uint256);
 
     event Deposit(address indexed user, address indexed basis, uint256 amount);
 
-    event Withdrawal(
-        address indexed user,
-        address indexed basis,
-        uint256 amount
-    );
+    event Withdrawal(address indexed user, address indexed basis, uint256 amount);
 }

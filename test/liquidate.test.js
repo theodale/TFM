@@ -7,10 +7,10 @@ const { liquidate } = require("../helpers/actions/liquidate.js");
 const {
   STRATEGY_ONE,
   SPEARMINT_ONE,
-  LIQUDATION_ONE,
+  LIQUIDATION_ONE,
 } = require("./test-parameters.js");
 
-describe("SPEARMINT", () => {
+describe("LIQUIDATION", () => {
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -22,12 +22,13 @@ describe("SPEARMINT", () => {
       oracle: this.oracle,
       liquidator: this.liquidator,
       owner: this.owner,
+      treasury: this.treasury,
       alice: this.alice,
       bob: this.bob,
     } = await loadFixture(freshDeployment));
   });
 
-  describe("Basic Liquidate Call", () => {
+  describe("Successful Call", () => {
     beforeEach(async () => {
       ({
         strategyId: this.strategyId,
@@ -58,10 +59,10 @@ describe("SPEARMINT", () => {
         this.oracle,
         this.liquidator,
         this.strategyId,
-        LIQUDATION_ONE.compensation,
-        LIQUDATION_ONE.alphaFee,
-        LIQUDATION_ONE.omegaFee,
-        LIQUDATION_ONE.postLiquidationAmplitude
+        LIQUIDATION_ONE.compensation,
+        LIQUIDATION_ONE.alphaFee,
+        LIQUIDATION_ONE.omegaFee,
+        LIQUIDATION_ONE.postLiquidationAmplitude
       );
     });
 
@@ -75,7 +76,31 @@ describe("SPEARMINT", () => {
       const strategy = await this.TFM.getStrategy(this.strategyId);
 
       expect(strategy.amplitude).to.equal(
-        LIQUDATION_ONE.postLiquidationAmplitude
+        LIQUIDATION_ONE.postLiquidationAmplitude
+      );
+    });
+
+    it("Fees sent to treasury", async () => {
+      await expect(this.liquidateTransaction).to.changeTokenBalance(
+        this.Basis,
+        this.treasury,
+        LIQUIDATION_ONE.alphaFee.add(LIQUIDATION_ONE.omegaFee)
+      );
+    });
+
+    it("Compensation transferred between parties", async () => {
+      const alphaPersonalPoolAddress =
+        await this.CollateralManager.personalPools(this.alice.address);
+      const omegaPersonalPoolAddress =
+        await this.CollateralManager.personalPools(this.bob.address);
+
+      await expect(this.liquidateTransaction).to.changeTokenBalances(
+        this.Basis,
+        [alphaPersonalPoolAddress, omegaPersonalPoolAddress],
+        [
+          LIQUIDATION_ONE.compensation.mul(-1).sub(LIQUIDATION_ONE.alphaFee),
+          LIQUIDATION_ONE.compensation.sub(LIQUIDATION_ONE.omegaFee),
+        ]
       );
     });
   });

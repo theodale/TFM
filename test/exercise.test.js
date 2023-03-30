@@ -26,7 +26,7 @@ describe("EXERCISE", () => {
     } = await loadFixture(freshDeployment));
   });
 
-  describe("Basic Exercise Call", () => {
+  describe("Successful Call", () => {
     beforeEach(async () => {
       ({
         strategyId: this.strategyId,
@@ -53,19 +53,13 @@ describe("EXERCISE", () => {
 
       this.exerciseTransaction = await exercise(
         this.TFM,
-        this.CollateralManager,
-        this.Basis,
         this.strategyId,
-        this.alice,
-        this.bob,
         this.oracle,
-        EXERCISE_ONE.payout,
-        EXERCISE_ONE.alphaFee,
-        EXERCISE_ONE.omegaFee
+        EXERCISE_ONE.payout
       );
     });
 
-    it("Exercised strategy's state deleted", async () => {
+    it("Exercised strategy deleted", async () => {
       const strategy = await this.TFM.getStrategy(this.strategyId);
 
       expect(strategy.expiry).to.equal(0);
@@ -77,8 +71,6 @@ describe("EXERCISE", () => {
       expect(strategy.ket).to.equal(ethers.constants.AddressZero);
       expect(strategy.basis).to.equal(ethers.constants.AddressZero);
       expect(strategy.phase).to.deep.equal([]);
-
-      // Check allocations are zero?
     });
 
     it("Correct post-exercise unallocated collateral balances", async () => {
@@ -93,6 +85,15 @@ describe("EXERCISE", () => {
           this.bob.address,
           this.Basis.address
         );
+
+      expect(alphaUnallocatedCollateral).to.equal(
+        SPEARMINT_ONE.alphaCollateralRequirement.sub(EXERCISE_ONE.payout)
+      );
+      expect(omegaUnallocatedCollateral).to.equal(
+        SPEARMINT_ONE.omegaCollateralRequirement
+          .add(EXERCISE_ONE.payout)
+          .add(SPEARMINT_ONE.premium)
+      );
     });
 
     it("Emits 'Exercise' event with correct parameters", async () => {
@@ -114,12 +115,5 @@ describe("EXERCISE", () => {
         [EXERCISE_ONE.payout.mul(-1), EXERCISE_ONE.payout]
       );
     });
-
-    // it("", async () => {});
-
-    // Correct collateral manager state
-
-    // tokens transferred - fees + personal pools
-    // correct collateral state
   });
 });
