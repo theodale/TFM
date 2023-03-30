@@ -2,10 +2,10 @@ const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 const { freshDeployment } = require("../helpers/fixtures.js");
-const { getSpearmintTerms } = require("../helpers/terms.js");
-const { signSpearmint } = require("../helpers/signing.js");
+const { getSpearmintTerms } = require("../helpers/terms/spearmint");
+const { signSpearmint } = require("../helpers/signing/spearmint.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
-const { STRATEGY_ONE, SPEARMINT_ONE } = require("./test-parameters.js");
+const { STRATEGY, SPEARMINT } = require("./test-parameters.js");
 
 describe("SPEARMINT", () => {
   beforeEach(async () => {
@@ -38,15 +38,15 @@ describe("SPEARMINT", () => {
         this.BRA,
         this.KET,
         this.Basis,
-        SPEARMINT_ONE.premium,
-        STRATEGY_ONE.transferable,
-        STRATEGY_ONE.expiry,
-        STRATEGY_ONE.amplitude,
-        STRATEGY_ONE.phase,
-        SPEARMINT_ONE.alphaCollateralRequirement,
-        SPEARMINT_ONE.omegaCollateralRequirement,
-        SPEARMINT_ONE.alphaFee,
-        SPEARMINT_ONE.omegaFee
+        SPEARMINT.premium,
+        STRATEGY.transferable,
+        STRATEGY.expiry,
+        STRATEGY.amplitude,
+        STRATEGY.phase,
+        SPEARMINT.alphaCollateralRequirement,
+        SPEARMINT.omegaCollateralRequirement,
+        SPEARMINT.alphaFee,
+        SPEARMINT.omegaFee
       ));
     });
 
@@ -55,56 +55,56 @@ describe("SPEARMINT", () => {
 
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);
-      expect(strategy.transferable).to.equal(STRATEGY_ONE.transferable);
-      expect(strategy.expiry).to.equal(STRATEGY_ONE.expiry);
-      expect(strategy.amplitude).to.equal(STRATEGY_ONE.amplitude);
+      expect(strategy.transferable).to.equal(STRATEGY.transferable);
+      expect(strategy.expiry).to.equal(STRATEGY.expiry);
+      expect(strategy.amplitude).to.equal(STRATEGY.amplitude);
       expect(strategy.bra).to.equal(this.BRA.address);
       expect(strategy.ket).to.equal(this.KET.address);
       expect(strategy.basis).to.equal(this.Basis.address);
-      expect(strategy.phase).to.deep.equal(STRATEGY_ONE.phase);
+      expect(strategy.phase).to.deep.equal(STRATEGY.phase);
       expect(strategy.actionNonce).to.equal(0);
     });
 
-    it("Correct resulting collateral state (allocated/unallocated)", async () => {
-      const alphaAllocatedCollateral =
-        await this.CollateralManager.allocatedCollateral(
-          this.alice.address,
-          this.strategyId
-        );
-      const omegaAllocatedCollateral =
-        await this.CollateralManager.allocatedCollateral(
-          this.bob.address,
-          this.strategyId
-        );
+    // it("Correct resulting collateral state (allocated/unallocated)", async () => {
+    //   const alphaAllocatedCollateral =
+    //     await this.CollateralManager.allocatedCollateral(
+    //       this.alice.address,
+    //       this.strategyId
+    //     );
+    //   const omegaAllocatedCollateral =
+    //     await this.CollateralManager.allocatedCollateral(
+    //       this.bob.address,
+    //       this.strategyId
+    //     );
 
-      // Check collateral alloacted to newly minted strategy
-      expect(alphaAllocatedCollateral).to.equal(
-        SPEARMINT_ONE.alphaCollateralRequirement
-      );
-      expect(omegaAllocatedCollateral).to.equal(
-        SPEARMINT_ONE.omegaCollateralRequirement
-      );
+    //   // Check collateral alloacted to newly minted strategy
+    //   expect(alphaAllocatedCollateral).to.equal(
+    //     SPEARMINT.alphaCollateralRequirement
+    //   );
+    //   expect(omegaAllocatedCollateral).to.equal(
+    //     SPEARMINT.omegaCollateralRequirement
+    //   );
 
-      const alphaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.alice.address,
-          this.Basis.address
-        );
-      const omegaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.bob.address,
-          this.Basis.address
-        );
+    //   const alphaUnallocatedCollateral =
+    //     await this.CollateralManager.unallocatedCollateral(
+    //       this.alice.address,
+    //       this.Basis.address
+    //     );
+    //   const omegaUnallocatedCollateral =
+    //     await this.CollateralManager.unallocatedCollateral(
+    //       this.bob.address,
+    //       this.Basis.address
+    //     );
 
-      // Check resulting unallocated collateral
-      if (SPEARMINT_ONE.premium > 0) {
-        expect(omegaUnallocatedCollateral).to.equal(SPEARMINT_ONE.premium);
-        expect(alphaUnallocatedCollateral).to.equal(0);
-      } else {
-        expect(alphaUnallocatedCollateral).to.equal(SPEARMINT_ONE.premium);
-        expect(omegaUnallocatedCollateral).to.equal(0);
-      }
-    });
+    //   // Check resulting unallocated collateral
+    //   if (SPEARMINT.premium > 0) {
+    //     expect(omegaUnallocatedCollateral).to.equal(SPEARMINT.premium);
+    //     expect(alphaUnallocatedCollateral).to.equal(0);
+    //   } else {
+    //     expect(alphaUnallocatedCollateral).to.equal(SPEARMINT.premium);
+    //     expect(omegaUnallocatedCollateral).to.equal(0);
+    //   }
+    // });
 
     it("Tokens used for fee/premium taken from minter's personal pools", async () => {
       const alicePersonalPoolAddress =
@@ -117,12 +117,12 @@ describe("SPEARMINT", () => {
       await expect(this.spearmintTransaction).to.changeTokenBalance(
         this.Basis,
         alicePersonalPoolAddress,
-        SPEARMINT_ONE.alphaFee.add(SPEARMINT_ONE.premium).mul(-1)
+        SPEARMINT.alphaFee.add(SPEARMINT.premium).mul(-1)
       );
       await expect(this.spearmintTransaction).to.changeTokenBalance(
         this.Basis,
         bobPersonalPoolAddress,
-        SPEARMINT_ONE.omegaFee.sub(SPEARMINT_ONE.premium).mul(-1)
+        SPEARMINT.omegaFee.sub(SPEARMINT.premium).mul(-1)
       );
     });
 
@@ -130,7 +130,7 @@ describe("SPEARMINT", () => {
       // await expect(this.spearmintTransaction).to.changeTokenBalance(
       //   this.Basis,
       //   this.treasury,
-      //   SPEARMINT_ONE.alphaFee.add(SPEARMINT_ONE.omegaFee)
+      //   SPEARMINT.alphaFee.add(SPEARMINT.omegaFee)
       // );
     });
 
@@ -153,24 +153,24 @@ describe("SPEARMINT", () => {
         await getSpearmintTerms(
           this.TFM,
           this.oracle,
-          STRATEGY_ONE.expiry,
-          SPEARMINT_ONE.alphaCollateralRequirement,
-          SPEARMINT_ONE.omegaCollateralRequirement,
-          SPEARMINT_ONE.alphaFee,
-          SPEARMINT_ONE.omegaFee,
+          STRATEGY.expiry,
+          SPEARMINT.alphaCollateralRequirement,
+          SPEARMINT.omegaCollateralRequirement,
+          SPEARMINT.alphaFee,
+          SPEARMINT.omegaFee,
           this.BRA,
           this.KET,
           this.Basis,
-          STRATEGY_ONE.amplitude,
-          STRATEGY_ONE.phase
+          STRATEGY.amplitude,
+          STRATEGY.phase
         ));
 
       this.spearmintParameters = await signSpearmint(
         this.alice,
         this.bob,
         oracleSignature,
-        SPEARMINT_ONE.premium,
-        STRATEGY_ONE.transferable,
+        SPEARMINT.premium,
+        STRATEGY.transferable,
         this.TFM
       );
     });

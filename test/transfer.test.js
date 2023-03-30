@@ -1,86 +1,75 @@
-// const { expect } = require("chai");
-// const { ethers } = require("hardhat");
-// const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+const { expect } = require("chai");
+const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
-// const { testDeployment } = require("../helpers/fixtures.js");
-// const { getTransferTerms } = require("../helpers/terms.js");
-// const { spearmint } = require("../helpers/actions.js");
-// const { signTransferParameters } = require("../helpers/sign.js");
-// const { mintAndDeposit } = require("../helpers/collateral-management.js");
+const { freshDeployment } = require("../helpers/fixtures.js");
+const { spearmint } = require("../helpers/actions/spearmint.js");
+const { transfer } = require("../helpers/actions/transfer.js");
+const { STRATEGY, SPEARMINT, TRANSFER } = require("./test-parameters.js");
 
-// const { SPEARMINT_TEST_PARAMETERS_1 } = require("./test-parameters.js");
+describe("TRANSFER", () => {
+  beforeEach(async () => {
+    ({
+      TFM: this.TFM,
+      CollateralManager: this.CollateralManager,
+      BRA: this.BRA,
+      KET: this.KET,
+      Basis: this.Basis,
+      Utils: this.Utils,
+      oracle: this.oracle,
+      treasury: this.treasury,
+      owner: this.owner,
+      alice: this.alice,
+      bob: this.bob,
+      carol: this.carol,
+    } = await loadFixture(freshDeployment));
+  });
 
-// describe("TRANSFER", () => {
-//   beforeEach(async () => {
-//     ({
-//       TFM: this.TFM,
-//       CollateralManager: this.CollateralManager,
-//       BRA: this.BRA,
-//       KET: this.KET,
-//       Basis: this.Basis,
-//       Utils: this.Utils,
-//       oracle: this.oracle,
-//       owner: this.owner,
-//       alice: this.alice,
-//       bob: this.bob,
-//       carol: this.carol,
-//     } = await loadFixture(testDeployment));
-//   });
+  // This block describes an alpha transfer => omega transfer is tested later
+  describe("Successful Call", () => {
+    beforeEach(async () => {
+      ({
+        strategyId: this.strategyId,
+        spearmintTransaction: this.spearmintTransaction,
+      } = await spearmint(
+        this.alice,
+        this.bob,
+        this.TFM,
+        this.CollateralManager,
+        this.oracle,
+        this.BRA,
+        this.KET,
+        this.Basis,
+        SPEARMINT.premium,
+        STRATEGY.transferable,
+        STRATEGY.expiry,
+        STRATEGY.amplitude,
+        STRATEGY.phase,
+        SPEARMINT.alphaCollateralRequirement,
+        SPEARMINT.omegaCollateralRequirement,
+        SPEARMINT.alphaFee,
+        SPEARMINT.omegaFee
+      ));
 
-//   it("Transfer transferable strategy", async () => {
-//     this.strategyId = await spearmint(
-//       this.alice,
-//       this.bob,
-//       this.TFM,
-//       this.CollateralManager,
-//       this.oracle,
-//       this.BRA,
-//       this.KET,
-//       this.Basis,
-//       SPEARMINT_TEST_PARAMETERS_1
-//     );
+      this.transferTransaction = await transfer(
+        this.TFM,
+        this.CollateralManager,
+        this.Basis,
+        this.strategyId,
+        this.oracle,
+        TRANSFER.recipientCollateralRequirement,
+        TRANSFER.recipientFee,
+        TRANSFER.senderFee,
+        TRANSFER.premium,
+        this.alice,
+        this.carol,
+        this.bob
+      );
+    });
 
-//     let recipientCollateralRequirement = 100;
-//     let senderFee = 200;
-//     let recipientFee = 300;
+    it("Updates transferred position minted strategy has correct state", async () => {
+      const strategy = await this.TFM.getStrategy(this.strategyId);
 
-//     const { oracleSignature, transferTerms } = await getTransferTerms(
-//       this.TFM,
-//       this.strategyId,
-//       this.oracle,
-//       recipientCollateralRequirement,
-//       senderFee,
-//       recipientFee,
-//       true
-//     );
-
-//     let premium = 400;
-
-//     const transferParameters = await signTransferParameters(
-//       this.alice,
-//       this.carol,
-//       this.bob,
-//       oracleSignature,
-//       this.strategyId,
-//       premium
-//     );
-
-//     await mintAndDeposit(
-//       this.CollateralManager,
-//       this.Basis,
-//       this.alice,
-//       premium
-//     );
-
-//     await mintAndDeposit(
-//       this.CollateralManager,
-//       this.Basis,
-//       this.carol,
-//       recipientCollateralRequirement
-//     );
-
-//     await this.TFM.transfer(transferTerms, transferParameters);
-//   });
-// });
-
-// // Sender sig invalid
+      expect(strategy.alpha).to.equal(this.carol.address);
+    });
+  });
+});

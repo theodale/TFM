@@ -1,6 +1,6 @@
 const { mintAndDeposit } = require("../collateral-management.js");
-const { getSpearmintTerms } = require("../terms.js");
-const { signSpearmint } = require("../signing.js");
+const { getSpearmintTerms } = require("../terms/spearmint.js");
+const { signSpearmint } = require("../signing/spearmint.js");
 
 const spearmint = async (
   alpha,
@@ -28,8 +28,10 @@ const spearmint = async (
 
   if (premium > 0) {
     alphaDeposit = alphaDeposit.add(premium);
+    omegaDeposit = omegaDeposit.sub(premium);
   } else {
-    omegaDeposit = omegaDeposit.add(premium.mul(-1));
+    omegaDeposit = omegaDeposit.add(premium);
+    alphaDeposit = alphaDeposit.sub(premium);
   }
 
   // Post required collateral

@@ -1,4 +1,4 @@
-const { getLiquidationTerms } = require("../terms.js");
+const { getLiquidationTerms } = require("../terms/liquidate");
 
 const liquidate = async (
   TFM,

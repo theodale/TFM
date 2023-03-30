@@ -1,13 +1,15 @@
 const { ethers } = require("hardhat");
 
-const STRATEGY_ONE = {
+// These objects contain the default parameter values used in the tests
+
+const STRATEGY = {
   expiry: 1680000000,
   amplitude: ethers.utils.parseEther("10"),
   phase: [[ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")]],
   transferable: true,
 };
 
-const SPEARMINT_ONE = {
+const SPEARMINT = {
   alphaCollateralRequirement: ethers.utils.parseEther("1"),
   omegaCollateralRequirement: ethers.utils.parseEther("1"),
   alphaFee: ethers.utils.parseEther("0.01"),
@@ -15,11 +17,18 @@ const SPEARMINT_ONE = {
   premium: ethers.utils.parseEther("0.1"),
 };
 
-const EXERCISE_ONE = {
+const TRANSFER = {
+  premium: ethers.utils.parseEther("0.1"),
+  senderFee: ethers.utils.parseEther("0.01"),
+  recipientFee: ethers.utils.parseEther("0.01"),
+  recipientCollateralRequirement: ethers.utils.parseEther("1"),
+};
+
+const EXERCISE = {
   payout: ethers.utils.parseEther("0.5"),
 };
 
-const LIQUIDATION_ONE = {
+const LIQUIDATION = {
   compensation: ethers.utils.parseEther("0.1"),
   alphaFee: ethers.utils.parseEther("0.01"),
   omegaFee: ethers.utils.parseEther("0.01"),
@@ -27,8 +36,9 @@ const LIQUIDATION_ONE = {
 };
 
 module.exports = {
-  STRATEGY_ONE,
-  SPEARMINT_ONE,
-  EXERCISE_ONE,
-  LIQUIDATION_ONE,
+  STRATEGY,
+  SPEARMINT,
+  TRANSFER,
+  EXERCISE,
+  LIQUIDATION,
 };

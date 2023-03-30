@@ -1,4 +1,4 @@
-const { getExerciseTerms } = require("../terms.js");
+const { getExerciseTerms } = require("../terms/exercise");
 
 const exercise = async (TFM, strategyId, oracle, payout) => {
   const { exerciseTerms, oracleSignature } = await getExerciseTerms(

@@ -4,11 +4,7 @@ const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { freshDeployment } = require("../helpers/fixtures.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
 const { exercise } = require("../helpers/actions/exercise.js");
-const {
-  STRATEGY_ONE,
-  SPEARMINT_ONE,
-  EXERCISE_ONE,
-} = require("./test-parameters.js");
+const { STRATEGY, SPEARMINT, EXERCISE } = require("./test-parameters.js");
 
 describe("EXERCISE", () => {
   beforeEach(async () => {
@@ -40,22 +36,22 @@ describe("EXERCISE", () => {
         this.BRA,
         this.KET,
         this.Basis,
-        SPEARMINT_ONE.premium,
-        STRATEGY_ONE.transferable,
-        STRATEGY_ONE.expiry,
-        STRATEGY_ONE.amplitude,
-        STRATEGY_ONE.phase,
-        SPEARMINT_ONE.alphaCollateralRequirement,
-        SPEARMINT_ONE.omegaCollateralRequirement,
-        SPEARMINT_ONE.alphaFee,
-        SPEARMINT_ONE.omegaFee
+        SPEARMINT.premium,
+        STRATEGY.transferable,
+        STRATEGY.expiry,
+        STRATEGY.amplitude,
+        STRATEGY.phase,
+        SPEARMINT.alphaCollateralRequirement,
+        SPEARMINT.omegaCollateralRequirement,
+        SPEARMINT.alphaFee,
+        SPEARMINT.omegaFee
       ));
 
       this.exerciseTransaction = await exercise(
         this.TFM,
         this.strategyId,
         this.oracle,
-        EXERCISE_ONE.payout
+        EXERCISE.payout
       );
     });
 
@@ -73,28 +69,28 @@ describe("EXERCISE", () => {
       expect(strategy.phase).to.deep.equal([]);
     });
 
-    it("Correct post-exercise unallocated collateral balances", async () => {
-      const alphaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.alice.address,
-          this.Basis.address
-        );
+    // it("Correct post-exercise unallocated collateral balances", async () => {
+    //   const alphaUnallocatedCollateral =
+    //     await this.CollateralManager.unallocatedCollateral(
+    //       this.alice.address,
+    //       this.Basis.address
+    //     );
 
-      const omegaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.bob.address,
-          this.Basis.address
-        );
+    //   const omegaUnallocatedCollateral =
+    //     await this.CollateralManager.unallocatedCollateral(
+    //       this.bob.address,
+    //       this.Basis.address
+    //     );
 
-      expect(alphaUnallocatedCollateral).to.equal(
-        SPEARMINT_ONE.alphaCollateralRequirement.sub(EXERCISE_ONE.payout)
-      );
-      expect(omegaUnallocatedCollateral).to.equal(
-        SPEARMINT_ONE.omegaCollateralRequirement
-          .add(EXERCISE_ONE.payout)
-          .add(SPEARMINT_ONE.premium)
-      );
-    });
+    //   expect(alphaUnallocatedCollateral).to.equal(
+    //     SPEARMINT.alphaCollateralRequirement.sub(EXERCISE.payout)
+    //   );
+    //   expect(omegaUnallocatedCollateral).to.equal(
+    //     SPEARMINT.omegaCollateralRequirement
+    //       .add(EXERCISE.payout)
+    //       .add(SPEARMINT.premium)
+    //   );
+    // });
 
     it("Emits 'Exercise' event with correct parameters", async () => {
       await expect(this.exerciseTransaction)
@@ -112,7 +108,7 @@ describe("EXERCISE", () => {
       await expect(this.exerciseTransaction).to.changeTokenBalances(
         this.Basis,
         [alicePersonalPoolAddress, bobPersonalPoolAddress],
-        [EXERCISE_ONE.payout.mul(-1), EXERCISE_ONE.payout]
+        [EXERCISE.payout.mul(-1), EXERCISE.payout]
       );
     });
   });

@@ -13,7 +13,7 @@ import "../interfaces/ITFM.sol";
 
 import "hardhat/console.sol";
 
-// ******************** THE FIELD MACHINE ********************
+// **************************************** THE FIELD MACHINE ****************************************
 // A peer-to-peer options trading base layer
 contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable, ITFM {
     // *** STATE VARIABLES ***
