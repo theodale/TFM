@@ -25,3 +25,7 @@ The options layer of the future.
 ### Ideas
 
 - Do we need a liquidate nonce to prevent replay of liq sigs
+- Check if abi.encodePacked is secure
+- Does the sig link parameters to terms?
+- Use NFTs for positions
+- What is ethers.utils.arrayify(hash)?

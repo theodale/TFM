@@ -64,7 +64,7 @@ describe("LIQUIDATION", () => {
 
     it("Emits 'Liquidated' event with correct parameters", async () => {
       expect(this.liquidateTransaction)
-        .to.emit(this.TFM, "Liquidated")
+        .to.emit(this.TFM, "Liquidation")
         .withArgs(this.strategyId);
     });
 

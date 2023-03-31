@@ -276,7 +276,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
             _terms.omegaFee
         );
 
-        emit Liquidated(_params.strategyId);
+        emit Liquidation(_params.strategyId);
     }
 
     // *** INTERNAL METHODS ***

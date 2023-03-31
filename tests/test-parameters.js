@@ -24,6 +24,17 @@ const TRANSFER = {
   recipientCollateralRequirement: ethers.utils.parseEther("1"),
 };
 
+const COMBINATION = {
+  strategyOneAlphaFee: ethers.utils.parseEther("0.01"),
+  strategyOneOmegaFee: ethers.utils.parseEther("0.01"),
+  resultingAlphaCollateralRequirement: ethers.utils.parseEther("1"),
+  resultingOmegaCollateralRequirement: ethers.utils.parseEther("1"),
+  resultingPhase: [
+    [ethers.utils.parseEther("1"), ethers.BigNumber.from("500000")],
+  ],
+  resultingAmplitude: ethers.utils.parseEther("10"),
+};
+
 const EXERCISE = {
   payout: ethers.utils.parseEther("0.5"),
 };
@@ -39,6 +50,7 @@ module.exports = {
   STRATEGY,
   SPEARMINT,
   TRANSFER,
+  COMBINATION,
   EXERCISE,
   LIQUIDATION,
 };

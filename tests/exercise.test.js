@@ -69,28 +69,27 @@ describe("EXERCISE", () => {
       expect(strategy.phase).to.deep.equal([]);
     });
 
-    // it("Correct post-exercise unallocated collateral balances", async () => {
-    //   const alphaUnallocatedCollateral =
-    //     await this.CollateralManager.unallocatedCollateral(
-    //       this.alice.address,
-    //       this.Basis.address
-    //     );
+    it("Correct post-exercise unallocated collateral balances", async () => {
+      const alphaUnallocatedCollateral =
+        await this.CollateralManager.unallocatedCollateral(
+          this.alice.address,
+          this.Basis.address
+        );
 
-    //   const omegaUnallocatedCollateral =
-    //     await this.CollateralManager.unallocatedCollateral(
-    //       this.bob.address,
-    //       this.Basis.address
-    //     );
+      const omegaUnallocatedCollateral =
+        await this.CollateralManager.unallocatedCollateral(
+          this.bob.address,
+          this.Basis.address
+        );
 
-    //   expect(alphaUnallocatedCollateral).to.equal(
-    //     SPEARMINT.alphaCollateralRequirement.sub(EXERCISE.payout)
-    //   );
-    //   expect(omegaUnallocatedCollateral).to.equal(
-    //     SPEARMINT.omegaCollateralRequirement
-    //       .add(EXERCISE.payout)
-    //       .add(SPEARMINT.premium)
-    //   );
-    // });
+      // Parties regain previously allocated collateral minus any payout
+      expect(alphaUnallocatedCollateral).to.equal(
+        SPEARMINT.alphaCollateralRequirement.sub(EXERCISE.payout)
+      );
+      expect(omegaUnallocatedCollateral).to.equal(
+        SPEARMINT.omegaCollateralRequirement.add(EXERCISE.payout)
+      );
+    });
 
     it("Emits 'Exercise' event with correct parameters", async () => {
       await expect(this.exerciseTransaction)

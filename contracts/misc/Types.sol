@@ -80,8 +80,6 @@ struct CombinationTerms {
     int256 resultingAmplitude;
     int[2][] resultingPhase;
     uint256 oracleNonce;
-    // Indicates if the combination terms are for target strategies with same (true) or opposite (false) alpha and omegas
-    bool aligned;
 }
 
 struct CombinationParameters {

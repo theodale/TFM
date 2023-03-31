@@ -65,46 +65,41 @@ describe("SPEARMINT", () => {
       expect(strategy.actionNonce).to.equal(0);
     });
 
-    // it("Correct resulting collateral state (allocated/unallocated)", async () => {
-    //   const alphaAllocatedCollateral =
-    //     await this.CollateralManager.allocatedCollateral(
-    //       this.alice.address,
-    //       this.strategyId
-    //     );
-    //   const omegaAllocatedCollateral =
-    //     await this.CollateralManager.allocatedCollateral(
-    //       this.bob.address,
-    //       this.strategyId
-    //     );
+    it("Correct resulting collateral state (allocated/unallocated)", async () => {
+      const alphaAllocatedCollateral =
+        await this.CollateralManager.allocatedCollateral(
+          this.alice.address,
+          this.strategyId
+        );
+      const omegaAllocatedCollateral =
+        await this.CollateralManager.allocatedCollateral(
+          this.bob.address,
+          this.strategyId
+        );
 
-    //   // Check collateral alloacted to newly minted strategy
-    //   expect(alphaAllocatedCollateral).to.equal(
-    //     SPEARMINT.alphaCollateralRequirement
-    //   );
-    //   expect(omegaAllocatedCollateral).to.equal(
-    //     SPEARMINT.omegaCollateralRequirement
-    //   );
+      // Check collateral alloacted to newly minted strategy
+      expect(alphaAllocatedCollateral).to.equal(
+        SPEARMINT.alphaCollateralRequirement
+      );
+      expect(omegaAllocatedCollateral).to.equal(
+        SPEARMINT.omegaCollateralRequirement
+      );
 
-    //   const alphaUnallocatedCollateral =
-    //     await this.CollateralManager.unallocatedCollateral(
-    //       this.alice.address,
-    //       this.Basis.address
-    //     );
-    //   const omegaUnallocatedCollateral =
-    //     await this.CollateralManager.unallocatedCollateral(
-    //       this.bob.address,
-    //       this.Basis.address
-    //     );
+      const alphaUnallocatedCollateral =
+        await this.CollateralManager.unallocatedCollateral(
+          this.alice.address,
+          this.Basis.address
+        );
+      const omegaUnallocatedCollateral =
+        await this.CollateralManager.unallocatedCollateral(
+          this.bob.address,
+          this.Basis.address
+        );
 
-    //   // Check resulting unallocated collateral
-    //   if (SPEARMINT.premium > 0) {
-    //     expect(omegaUnallocatedCollateral).to.equal(SPEARMINT.premium);
-    //     expect(alphaUnallocatedCollateral).to.equal(0);
-    //   } else {
-    //     expect(alphaUnallocatedCollateral).to.equal(SPEARMINT.premium);
-    //     expect(omegaUnallocatedCollateral).to.equal(0);
-    //   }
-    // });
+      // Remaing unallocated collateral should be zero as exact required amounts were deposited
+      expect(alphaUnallocatedCollateral).to.equal(0);
+      expect(omegaUnallocatedCollateral).to.equal(0);
+    });
 
     it("Tokens used for fee/premium taken from minter's personal pools", async () => {
       const alicePersonalPoolAddress =
@@ -127,11 +122,11 @@ describe("SPEARMINT", () => {
     });
 
     it("Fees sent to treasury", async () => {
-      // await expect(this.spearmintTransaction).to.changeTokenBalance(
-      //   this.Basis,
-      //   this.treasury,
-      //   SPEARMINT.alphaFee.add(SPEARMINT.omegaFee)
-      // );
+      await expect(this.spearmintTransaction).to.changeTokenBalance(
+        this.Basis,
+        this.treasury,
+        SPEARMINT.alphaFee.add(SPEARMINT.omegaFee)
+      );
     });
 
     it("Emits 'Spearmint' event with correct parameters", async () => {
@@ -147,7 +142,7 @@ describe("SPEARMINT", () => {
   // - oracle nonce incorrect -> check this in another folder - check this method reverts
   // - mint nonce incorrect - increments mint nonce
 
-  describe("Collateral Reversions", () => {
+  describe("Reversions", () => {
     beforeEach(async () => {
       ({ spearmintTerms: this.spearmintTerms, oracleSignature } =
         await getSpearmintTerms(

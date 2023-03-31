@@ -71,5 +71,11 @@ describe("TRANSFER", () => {
 
       expect(strategy.alpha).to.equal(this.carol.address);
     });
+
+    it("Emits 'Transfer' event with correct parameters", async () => {
+      await expect(this.transferTransaction)
+        .to.emit(this.TFM, "Transfer")
+        .withArgs(this.strategyId);
+    });
   });
 });
