@@ -6,11 +6,20 @@ const signTransfer = async (
   staticParty,
   oracleSignature,
   strategyId,
-  premium
+  premium,
+  TFM
 ) => {
+  const strategy = await TFM.getStrategy(strategyId);
+
   const message = ethers.utils.solidityKeccak256(
-    ["bytes", "uint256", "address", "int256"],
-    [oracleSignature, strategyId, recipient.address, premium]
+    ["bytes", "uint256", "address", "int256", "uint256"],
+    [
+      oracleSignature,
+      strategyId,
+      recipient.address,
+      premium,
+      strategy.actionNonce,
+    ]
   );
 
   const senderSignature = await sender.signMessage(

@@ -4,6 +4,11 @@ const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { freshDeployment } = require("../helpers/fixtures.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
 const { liquidate } = require("../helpers/actions/liquidate.js");
+const {
+  checkCollateralAllocations,
+  checkUnallocatedCollateralBalances,
+  checkPoolBalanceChanges,
+} = require("../helpers/assertions.js");
 const { STRATEGY, SPEARMINT, LIQUIDATION } = require("./test-parameters.js");
 
 describe("LIQUIDATION", () => {
@@ -82,19 +87,41 @@ describe("LIQUIDATION", () => {
       );
     });
 
-    it("Compensation transferred between parties", async () => {
-      const alphaPersonalPoolAddress =
-        await this.CollateralManager.personalPools(this.alice.address);
-      const omegaPersonalPoolAddress =
-        await this.CollateralManager.personalPools(this.bob.address);
-
-      await expect(this.liquidateTransaction).to.changeTokenBalances(
+    it("Compensation and fees taken from personal pools", async () => {
+      await checkPoolBalanceChanges(
+        this.CollateralManager,
         this.Basis,
-        [alphaPersonalPoolAddress, omegaPersonalPoolAddress],
+        [this.alice, this.bob],
         [
           LIQUIDATION.compensation.mul(-1).sub(LIQUIDATION.alphaFee),
           LIQUIDATION.compensation.sub(LIQUIDATION.omegaFee),
+        ],
+        this.liquidateTransaction
+      );
+    });
+
+    it("Correct post-liquidation strategy collateral allocations", async () => {
+      // This will not working if compensation is -ve
+      await checkCollateralAllocations(
+        this.CollateralManager,
+        this.strategyId,
+        [this.alice, this.bob],
+        [
+          SPEARMINT.alphaCollateralRequirement
+            .sub(LIQUIDATION.alphaFee)
+            .sub(LIQUIDATION.compensation),
+          SPEARMINT.omegaCollateralRequirement.sub(LIQUIDATION.omegaFee),
         ]
+      );
+    });
+
+    it("Correct post-liquidation unallocated collateral balances", async () => {
+      // Also only works for +ve compensation
+      await checkUnallocatedCollateralBalances(
+        this.CollateralManager,
+        this.Basis,
+        [this.bob],
+        [LIQUIDATION.compensation]
       );
     });
   });

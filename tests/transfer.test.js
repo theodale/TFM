@@ -4,6 +4,11 @@ const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { freshDeployment } = require("../helpers/fixtures.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
 const { transfer } = require("../helpers/actions/transfer.js");
+const {
+  checkCollateralAllocations,
+  checkUnallocatedCollateralBalances,
+  checkPoolBalanceChanges,
+} = require("../helpers/assertions.js");
 const { STRATEGY, SPEARMINT, TRANSFER } = require("./test-parameters.js");
 
 describe("TRANSFER", () => {
@@ -77,5 +82,44 @@ describe("TRANSFER", () => {
         .to.emit(this.TFM, "Transfer")
         .withArgs(this.strategyId);
     });
+
+    it("Correct strategy collateral allocations post-transfer", async () => {
+      await checkCollateralAllocations(
+        this.CollateralManager,
+        this.strategyId,
+        [this.alice, this.bob, this.carol],
+        [
+          0,
+          TRANSFER.recipientCollateralRequirement,
+          SPEARMINT.omegaCollateralRequirement,
+        ]
+      );
+    });
+
+    it("Premium exchanged between and fees taken from personal pools", async () => {
+      await checkPoolBalanceChanges(
+        this.CollateralManager,
+        this.Basis,
+        [this.alice, this.carol],
+        [
+          TRANSFER.premium.mul(-1).sub(TRANSFER.senderFee),
+          TRANSFER.premium.sub(TRANSFER.recipientFee),
+        ],
+        this.transferTransaction
+      );
+    });
+
+    it("Correct unallocated collateral balances post-transfer", async () => {
+      await checkUnallocatedCollateralBalances(
+        this.CollateralManager,
+        this.Basis,
+        [this.alice, this.bob, this.carol],
+        [SPEARMINT.alphaCollateralRequirement, 0, TRANSFER.premium]
+      );
+    });
+
+    // TODO:
+    // - check omega transfer
+    // - cannot transfer a non-transferable strategy with a blank static party sig
   });
 });

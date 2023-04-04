@@ -231,15 +231,18 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
 
     // LIQUIDATE
 
-    // Fees are taken from the liquidator's collateral => not from unallocated pool as per usual
+    // whats going on here!
+    // Do all balances for everything
+
+    // Fees are taken from the liquidator's collateral => not from unallocated pool as per usual => RENAME
     function liquidate(
         uint256 _strategyId,
         address _alpha,
         address _omega,
         int256 _compensation,
         address _basis,
-        uint256 _alphaFee,
-        uint256 _omegaFee
+        uint256 _alphaPenalisation,
+        uint256 _omegaPenalisation
     ) external {
         address payable alphaPersonalPool = _getPersonalPool(_alpha);
         address payable omegaPersonalPool = _getPersonalPool(_omega);
@@ -262,15 +265,15 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
         }
 
         // Transfer protocol fees
-        if (_alphaFee > 0) {
-            _transferFromPersonalPool(alphaPersonalPool, _basis, treasury, _alphaFee);
+        if (_alphaPenalisation > 0) {
+            _transferFromPersonalPool(alphaPersonalPool, _basis, treasury, _alphaPenalisation);
 
-            allocatedCollateral[_alpha][_strategyId] += _alphaFee;
+            allocatedCollateral[_alpha][_strategyId] -= _alphaPenalisation;
         }
-        if (_omegaFee > 0) {
-            _transferFromPersonalPool(omegaPersonalPool, _basis, treasury, _omegaFee);
+        if (_alphaPenalisation > 0) {
+            _transferFromPersonalPool(omegaPersonalPool, _basis, treasury, _omegaPenalisation);
 
-            allocatedCollateral[_omega][_strategyId] += _omegaFee;
+            allocatedCollateral[_omega][_strategyId] -= _omegaPenalisation;
         }
 
         allocatedCollateral[_alpha][_strategyId] -= alphaAllocatedCollateralReduction;

@@ -76,6 +76,7 @@ const getCombinationTerms = async (
     resultingAmplitude,
     resultingPhase,
     oracleNonce,
+    aligned,
   };
 
   return { oracleSignature, combinationTerms };

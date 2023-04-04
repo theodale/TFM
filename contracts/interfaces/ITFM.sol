@@ -9,9 +9,13 @@ interface ITFM {
 
     event Spearmint(uint256 strategyId);
 
+    event Peppermint(uint256 strategyId);
+
     event Transfer(uint256 strategyId);
 
     event Combination(uint256 strategyOneId, uint256 strategyTwoId);
+
+    event Novation(uint256 strategyOneId, uint256 strategyTwoId);
 
     event Withdraw(uint256 strategyId);
 

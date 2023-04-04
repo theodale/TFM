@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const getSpearmintTerms = async (
+const getMintTerms = async (
   TFM,
   oracle,
   expiry,
@@ -47,7 +47,7 @@ const getSpearmintTerms = async (
 
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-  const spearmintTerms = {
+  const mintTerms = {
     expiry,
     alphaCollateralRequirement,
     omegaCollateralRequirement,
@@ -61,9 +61,9 @@ const getSpearmintTerms = async (
     phase,
   };
 
-  return { oracleSignature, spearmintTerms };
+  return { oracleSignature, mintTerms };
 };
 
 module.exports = {
-  getSpearmintTerms,
+  getMintTerms,
 };

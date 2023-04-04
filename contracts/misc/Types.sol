@@ -20,9 +20,9 @@ struct Strategy {
 
 // *** ACTIONS ***
 
-// SPEARMINT
+// MINT
 
-struct SpearmintTerms {
+struct MintTerms {
     uint256 expiry;
     uint256 alphaCollateralRequirement;
     uint256 omegaCollateralRequirement;
@@ -36,13 +36,10 @@ struct SpearmintTerms {
     int256[2][] phase;
 }
 
-struct SpearmintParameters {
-    // Links to a specific set of spearmint terms
+struct MintParameters {
     bytes oracleSignature;
     address alpha;
-    bytes alphaSignature;
     address omega;
-    bytes omegaSignature;
     int256 premium;
     bool transferable;
 }
@@ -70,7 +67,7 @@ struct TransferParameters {
     bytes staticPartySignature;
 }
 
-// COMBINATION
+// COMBINE
 
 struct CombinationTerms {
     uint256 strategyOneAlphaFee;
@@ -78,8 +75,10 @@ struct CombinationTerms {
     uint256 resultingAlphaCollateralRequirement;
     uint256 resultingOmegaCollateralRequirement;
     int256 resultingAmplitude;
-    int[2][] resultingPhase;
+    int256[2][] resultingPhase;
     uint256 oracleNonce;
+    // True if alpha and omega hold same positions in both strategies
+    bool aligned;
 }
 
 struct CombinationParameters {
@@ -90,10 +89,39 @@ struct CombinationParameters {
     bytes oracleSignature;
 }
 
+// NOVATE
+
+struct NovationTerms {
+    uint256 oracleNonce;
+    // Collateral requirements of resulting strategies
+    uint256 strategyOneResultingAlphaCollateralRequirement;
+    uint256 strategyOneResultingOmegaCollateralRequirement;
+    uint256 strategyTwoResultingAlphaCollateralRequirement;
+    uint256 strategyTwoResultingOmegaCollateralRequirement;
+    // Characteristics of resulting strategies
+    int256 strategyOneResultingAmplitude;
+    int256 strategyTwoResultingAmplitude;
+    int256[2][] strategyOneResultingPhase;
+    int256[2][] strategyTwoResultingPhase;
+    // Action fee paid by middle party
+    uint256 fee;
+    // True/False if strategy one's alpha/omega is the middle party => neater if read this off chain?
+    bool strategyOneAlphaMiddle;
+}
+
+struct NovationParameters {
+    uint256 strategyOneId;
+    uint256 strategyTwoId;
+    bytes oracleSignature;
+    bytes middlePartySignature;
+    bytes strategyOneNonMiddlePartySignature;
+    bytes strategyTwoNonMiddlePartySignature;
+}
+
 // EXERCISE
 
 struct ExerciseTerms {
-    // If payout is +ve => alpha pays omega, if payout is -ve => omega pays alpha
+    // If payout is +ve/-ve => alpha/omega pays omega/alpha
     int256 payout;
     uint256 oracleNonce;
 }
@@ -108,11 +136,12 @@ struct ExerciseParameters {
 struct LiquidationTerms {
     uint256 oracleNonce;
     // Basis transferred from one party to other as compensation for any value loss they experience due to amplitude reduction
+    // If +ve/-ve => alpha/omega pays omega/alpha absolute compensation
     int256 compensation;
-    // The fee paid by alpha during liquidation
-    uint256 alphaFee;
-    // The fee paid by omega during liquidation
-    uint256 omegaFee;
+    // The collateral taken from alpha's allocation by the protocol
+    uint256 alphaPenalisation;
+    // The collateral taken from omega's allocation by the protocol
+    uint256 omegaPenalisation;
     // The value the liquidated strategy's amplitude is reduced to in order to maintain collateralisation
     int256 postLiquidationAmplitude;
 }

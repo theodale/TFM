@@ -18,7 +18,12 @@ library Utils {
     // SPEARMINT
 
     // Checks that alpha and omega have provided signatures to authorise the spearmint
-    function ensureSpearmintApprovals(SpearmintParameters calldata _parameters, uint256 _mintNonce) external view {
+    function ensureSpearmintApprovals(
+        MintParameters calldata _parameters,
+        uint256 _mintNonce,
+        bytes calldata _alphaSignature,
+        bytes calldata _omegaSignature
+    ) external view {
         bytes memory message = abi.encodePacked(
             _parameters.oracleSignature,
             _parameters.alpha,
@@ -30,19 +35,13 @@ library Utils {
 
         bytes32 hash = _generateMessageHash(message);
 
-        require(
-            _isValidSignature(hash, _parameters.alphaSignature, _parameters.alpha),
-            "SPEARMINT: Alpha signature invalid"
-        );
+        require(_isValidSignature(hash, _alphaSignature, _parameters.alpha), "SPEARMINT: Alpha signature invalid");
 
-        require(
-            _isValidSignature(hash, _parameters.omegaSignature, _parameters.omega),
-            "SPEARMINT: Omega signature invalid"
-        );
+        require(_isValidSignature(hash, _omegaSignature, _parameters.omega), "SPEARMINT: Omega signature invalid");
     }
 
-    function validateSpearmintTerms(
-        SpearmintTerms calldata _terms,
+    function validateMintTerms(
+        MintTerms calldata _terms,
         bytes calldata _oracleSignature,
         address _oracle
     ) external view {
@@ -73,7 +72,8 @@ library Utils {
             _parameters.oracleSignature,
             _parameters.strategyId,
             _parameters.recipient,
-            _parameters.premium
+            _parameters.premium,
+            _strategy.actionNonce
         );
 
         bytes32 hash = _generateMessageHash(message);
@@ -122,8 +122,8 @@ library Utils {
     // COMBINATION
 
     function checkCombinationApprovals(
-        uint256 _stragegyOneId,
-        uint256 _stragegyTwoId,
+        uint256 _strategyOneId,
+        uint256 _strategyTwoId,
         Strategy storage _strategyOne,
         Strategy storage _strategyTwo,
         bytes calldata _strategyOneAlphaSignature,
@@ -131,8 +131,8 @@ library Utils {
         bytes calldata _oracleSignature
     ) external view {
         bytes memory message = abi.encodePacked(
-            _stragegyOneId,
-            _stragegyTwoId,
+            _strategyOneId,
+            _strategyTwoId,
             _strategyOne.actionNonce,
             _strategyTwo.actionNonce,
             _oracleSignature
@@ -158,7 +158,18 @@ library Utils {
         address _oracle,
         bytes calldata _oracleSignature
     ) external view {
-        bool aligned = _getAlignment(_strategyOne, _strategyTwo);
+        // Ensure alignment specified by terms is accurate
+        if (_terms.aligned) {
+            require(
+                _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
+                "COMBINATION: Strategies are not aligned"
+            );
+        } else {
+            require(
+                _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
+                "COMBINATION: Strategies are not aligned"
+            );
+        }
 
         bytes memory message = abi.encodePacked(
             abi.encodePacked(
@@ -182,10 +193,105 @@ library Utils {
                 _terms.resultingOmegaCollateralRequirement,
                 _terms.resultingPhase
             ),
-            abi.encodePacked(_terms.resultingAmplitude, _terms.oracleNonce, aligned)
+            abi.encodePacked(_terms.resultingAmplitude, _terms.oracleNonce, _terms.aligned)
         );
 
         require(_isValidSignature(message, _oracleSignature, _oracle), "COMBINATION: Invalid Trufin oracle signature");
+    }
+
+    // NOVATE
+
+    function validateNovationTerms(
+        NovationTerms calldata _terms,
+        Strategy storage _strategyOne,
+        Strategy storage _strategyTwo,
+        address _oracle,
+        bytes calldata _oracleSignature
+    ) external view {
+        // Ensure terms are for correct middle party configuration
+        if (_terms.strategyOneAlphaMiddle) {
+            require(_strategyOne.alpha == _strategyTwo.omega, "NOVATE: Strategy one alpha not middle party");
+        } else {
+            require(_strategyOne.omega == _strategyTwo.alpha, "NOVATE: Strategy one omega not middle party");
+        }
+
+        bytes memory message = abi.encodePacked(
+            abi.encodePacked(
+                _strategyOne.expiry,
+                _strategyOne.bra,
+                _strategyOne.ket,
+                _strategyOne.basis,
+                _strategyOne.amplitude,
+                _strategyOne.phase,
+                _strategyTwo.expiry,
+                _strategyTwo.bra,
+                _strategyTwo.ket,
+                _strategyTwo.basis
+            ),
+            abi.encodePacked(
+                _strategyTwo.amplitude,
+                _strategyTwo.phase,
+                _terms.strategyOneResultingAlphaCollateralRequirement,
+                _terms.strategyOneResultingOmegaCollateralRequirement,
+                _terms.strategyTwoResultingAlphaCollateralRequirement,
+                _terms.strategyTwoResultingOmegaCollateralRequirement,
+                _terms.strategyOneResultingPhase,
+                _terms.strategyTwoResultingPhase
+            ),
+            abi.encodePacked(
+                _terms.strategyOneResultingAmplitude,
+                _terms.strategyTwoResultingAmplitude,
+                _terms.fee,
+                _terms.oracleNonce,
+                _terms.strategyOneAlphaMiddle
+            )
+        );
+
+        require(_isValidSignature(message, _oracleSignature, _oracle), "NOVATE: Invalid Trufin oracle signature");
+    }
+
+    function checkNovationApprovals(
+        NovationParameters calldata _parameters,
+        Strategy storage _strategyOne,
+        Strategy storage _strategyTwo,
+        bool _strategyOneAlphaMiddle
+    ) external view {
+        // Do we need action nonce here?
+        bytes memory message = abi.encodePacked(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            _strategyOne.actionNonce,
+            _strategyTwo.actionNonce,
+            _parameters.oracleSignature
+        );
+
+        bytes32 hash = _generateMessageHash(message);
+
+        address middleParty = _strategyOneAlphaMiddle ? _strategyOne.alpha : _strategyOne.omega;
+
+        require(
+            _isValidSignature(hash, _parameters.middlePartySignature, middleParty),
+            "TFM: Invalid strategy two alpha signature"
+        );
+
+        if (!_strategyOne.transferable) {
+            address approver = _strategyOneAlphaMiddle ? _strategyOne.omega : _strategyOne.alpha;
+
+            require(
+                _isValidSignature(hash, _parameters.strategyOneNonMiddlePartySignature, approver),
+                "TFM: Invalid strategy one omega signature"
+            );
+        }
+
+        if (!_strategyTwo.transferable) {
+            address strategyTwoAlpha = _strategyTwo.alpha;
+            address approver = middleParty == strategyTwoAlpha ? _strategyTwo.omega : strategyTwoAlpha;
+
+            require(
+                _isValidSignature(hash, _parameters.strategyTwoNonMiddlePartySignature, approver),
+                "TFM: Invalid strategy one omega signature"
+            );
+        }
     }
 
     // EXERCISE
@@ -230,10 +336,10 @@ library Utils {
                 _strategy.phase,
                 _terms.oracleNonce,
                 _terms.compensation,
-                _terms.alphaFee
+                _terms.alphaPenalisation
             ),
             abi.encodePacked(
-                _terms.omegaFee,
+                _terms.omegaPenalisation,
                 _terms.postLiquidationAmplitude,
                 _initialAlphaAllocation,
                 _initialOmegaAllocation
@@ -241,20 +347,6 @@ library Utils {
         );
 
         require(_isValidSignature(message, _oracleSignature, _oracle), "LIQUIDATE: Invalid Trufin oracle signature");
-    }
-
-    // Could inline this if not reused
-    function _getAlignment(
-        Strategy storage _strategyOne,
-        Strategy storage _strategyTwo
-    ) internal view returns (bool aligned) {
-        if (_strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega) {
-            aligned = true;
-        } else if (_strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha) {
-            aligned = false;
-        } else {
-            revert("COMBINATION: Strategies are not shared between two parties");
-        }
     }
 
     // *** UPDATE NONCE ***
@@ -294,42 +386,4 @@ library Utils {
 
         return _isValidSignature(messageHash, _signature, _signer);
     }
-
-    // function checkLiquidationSignature(
-    //     LiquidationParams memory _liquidationParams,
-    //     Strategy storage _strategy,
-    //     bytes memory _liquidationSignature,
-    //     address _web2Address
-    // ) external view {
-    //     // Perform encoding in two stages to avoid stack depth issues
-
-    //     bytes memory liquidationEncoding = abi.encodePacked(
-    //         _liquidationParams.collateralNonce,
-    //         _liquidationParams.alphaCompensation,
-    //         _liquidationParams.omegaCompensation,
-    //         _liquidationParams.alphaFee,
-    //         _liquidationParams.omegaFee,
-    //         _liquidationParams.newAmplitude,
-    //         _liquidationParams.newMaxNotional,
-    //         _liquidationParams.initialAlphaAllocation,
-    //         _liquidationParams.initialOmegaAllocation
-    //     );
-
-    //     bytes memory fullEncoding = abi.encodePacked(
-    //         liquidationEncoding,
-    //         _strategy.bra,
-    //         _strategy.ket,
-    //         _strategy.basis,
-    //         _strategy.expiry,
-    //         _strategy.amplitude,
-    //         _strategy.phase
-    //     );
-
-    //     bytes32 messageHash = keccak256(fullEncoding);
-
-    //     require(
-    //         isValidSigner(messageHash, _liquidationSignature, _web2Address),
-    //         "Liquidation signature incorrect"
-    //     );
-    // }
 }

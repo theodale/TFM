@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const signSpearmint = async (
   alpha,
   omega,
-  trufinOracleSignature,
+  oracleSignature,
   premium,
   transferable,
   TFM
@@ -13,7 +13,7 @@ const signSpearmint = async (
   const hash = ethers.utils.solidityKeccak256(
     ["bytes", "address", "address", "int256", "bool", "uint256"],
     [
-      trufinOracleSignature,
+      oracleSignature,
       alpha.address,
       omega.address,
       premium,
@@ -25,17 +25,7 @@ const signSpearmint = async (
   const alphaSignature = await alpha.signMessage(ethers.utils.arrayify(hash));
   const omegaSignature = await omega.signMessage(ethers.utils.arrayify(hash));
 
-  const spearmintParameters = {
-    oracleSignature: trufinOracleSignature,
-    alpha: alpha.address,
-    alphaSignature: alphaSignature,
-    omega: omega.address,
-    omegaSignature: omegaSignature,
-    premium: premium,
-    transferable: transferable,
-  };
-
-  return spearmintParameters;
+  return { alphaSignature, omegaSignature };
 };
 
 module.exports = {

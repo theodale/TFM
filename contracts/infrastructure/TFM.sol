@@ -15,6 +15,7 @@ import "hardhat/console.sol";
 
 // **************************************** THE FIELD MACHINE ****************************************
 // A peer-to-peer options trading base layer
+// Created by Field Labs
 contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable, ITFM {
     // *** STATE VARIABLES ***
 
@@ -47,7 +48,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
     // Protocol's collateral management contract
     ICollateralManager public collateralManager;
 
-    // *** INITIALIZE ***
+    // *** INITIALIZER ***
 
     function initialize(
         address _collateralManager,
@@ -88,23 +89,24 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         return strategies[_strategyID];
     }
 
-    // *** ADMIN SETTERS ***
-
-    function setLiquidator(address _liquidator) public onlyOwner {
-        liquidator = _liquidator;
-    }
-
-    function setCollateralManager(address _collateralManager) external onlyOwner {
-        collateralManager = ICollateralManager(_collateralManager);
-    }
-
     // *** STRATEGY ACTIONS ***
 
-    // Mint a new strategy
-    function spearmint(SpearmintTerms calldata _terms, SpearmintParameters calldata _parameters) external {
-        Utils.validateSpearmintTerms(_terms, _parameters.oracleSignature, trufinOracle);
+    // Mint a new strategy between two parties
+    // Signatures verify alpha and omega mint approval
+    function spearmint(
+        MintTerms calldata _terms,
+        MintParameters calldata _parameters,
+        bytes calldata _alphaSignature,
+        bytes calldata _omegaSignature
+    ) external {
+        Utils.validateMintTerms(_terms, _parameters.oracleSignature, trufinOracle);
 
-        Utils.ensureSpearmintApprovals(_parameters, getMintNonce(_parameters.alpha, _parameters.omega));
+        Utils.ensureSpearmintApprovals(
+            _parameters,
+            getMintNonce(_parameters.alpha, _parameters.omega),
+            _alphaSignature,
+            _omegaSignature
+        );
 
         _checkOracleNonce(_terms.oracleNonce);
 
@@ -127,10 +129,33 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Spearmint(strategyId);
     }
 
-    function peppermint() external {}
+    // Approved third party mints a strategy for two users
+    function peppermint(MintTerms calldata _terms, MintParameters calldata _parameters) external {
+        Utils.validateMintTerms(_terms, _parameters.oracleSignature, trufinOracle);
+
+        _checkOracleNonce(_terms.oracleNonce);
+
+        uint256 strategyId = _createStrategy(_terms, _parameters);
+
+        _incrementMintNonce(_parameters.alpha, _parameters.omega);
+
+        // collateralManager.peppermint(
+        //     strategyId,
+        //     _parameters.alpha,
+        //     _parameters.omega,
+        //     _terms.basis,
+        //     _terms.alphaCollateralRequirement,
+        //     _terms.omegaCollateralRequirement,
+        //     _terms.alphaFee,
+        //     _terms.omegaFee,
+        //     _parameters.premium
+        // );
+
+        emit Peppermint(strategyId);
+    }
 
     // Transfer a strategy position
-    // Ensure correct collateral and security flow when trasnferring to self
+    // Ensure correct collateral and security flow when transferring to self
     function transfer(TransferTerms calldata _terms, TransferParameters calldata _parameters) external {
         Strategy storage strategy = strategies[_parameters.strategyId];
 
@@ -203,14 +228,39 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         strategyOne.phase = _terms.resultingPhase;
         strategyOne.amplitude = _terms.resultingAmplitude;
 
+        // Deleting strategy two prevents approval signature replay => no need to increment action nonce
         _deleteStrategy(_parameters.strategyTwoId);
 
         emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
+    // Alter two same-phase strategies shared between parties to reduce overall collateral requirements
+    function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
+        Strategy storage strategyOne = strategies[_parameters.strategyOneId];
+        Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
+
+        _checkOracleNonce(_terms.oracleNonce);
+
+        Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
+
+        Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo, _terms.strategyOneAlphaMiddle);
+
+        // collateralManager.novate()
+
+        // Change alpha and omega on strategies if required
+
+        // Delete any strategies in the case of a complete novation
+        if (_terms.strategyOneResultingAmplitude == 0) {
+            _deleteStrategy(_parameters.strategyOneId);
+        } else if (_terms.strategyTwoResultingAmplitude == 0) {
+            _deleteStrategy(_parameters.strategyTwoId);
+        }
+
+        emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
+    }
+
     // Call to finalise a position on a strategy
     // Unallocates collateral not used for a payout
-    // No alpha/omega split like in trufin_v2
     function exercise(ExerciseTerms calldata _terms, ExerciseParameters calldata _parameters) external {
         _checkOracleNonce(_terms.oracleNonce);
 
@@ -231,6 +281,8 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Exercise(_parameters.strategyId);
     }
 
+    // *** MAINTENANCE ***
+
     function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
         // Prevents replay of out-of-date signatures
         require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
@@ -243,8 +295,6 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         emit OracleNonceUpdated(_oracleNonce);
     }
-
-    // *** LIQUIDATION ***
 
     function liquidate(LiquidationTerms calldata _terms, LiquidationParameters calldata _params) external {
         require(msg.sender == liquidator, "TFM: Liquidator only");
@@ -272,19 +322,50 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
             strategy.omega,
             _terms.compensation,
             strategy.basis,
-            _terms.alphaFee,
-            _terms.omegaFee
+            _terms.alphaPenalisation,
+            _terms.omegaPenalisation
         );
 
         emit Liquidation(_params.strategyId);
     }
 
+    // *** ADMIN SETTERS ***
+
+    function setLiquidator(address _liquidator) public onlyOwner {
+        liquidator = _liquidator;
+    }
+
+    function setCollateralManager(address _collateralManager) external onlyOwner {
+        collateralManager = ICollateralManager(_collateralManager);
+    }
+
     // *** INTERNAL METHODS ***
+
+    // Internal method that updates a pairs mint nonce
+    function _incrementMintNonce(address partyOne, address partyTwo) private {
+        if (partyOne < partyTwo) {
+            mintNonce[partyOne][partyTwo]++;
+        } else {
+            mintNonce[partyTwo][partyOne]++;
+        }
+    }
+
+    // Performs oracle nonce-related checks
+    function _checkOracleNonce(uint256 _oracleNonce) internal view {
+        // Ensure input nonce is not outdated
+        require((_oracleNonce <= oracleNonce) && (oracleNonce - _oracleNonce <= 1), "TFM: Oracle nonce has expired");
+
+        // Check whether contract is locked due to oracle nonce not being updated
+        require(
+            (block.timestamp < latestOracleNonceUpdateTime + lockTime),
+            "TFM: Contract locked as oracle nonce has not been updated"
+        );
+    }
 
     // Creates a new strategy and returns its ID
     function _createStrategy(
-        SpearmintTerms calldata _terms,
-        SpearmintParameters calldata _parameters
+        MintTerms calldata _terms,
+        MintParameters calldata _parameters
     ) internal returns (uint256) {
         uint256 newStrategyId = strategyCounter++;
 
@@ -300,27 +381,6 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         strategies[newStrategyId].phase = _terms.phase;
 
         return newStrategyId;
-    }
-
-    // Internal method that updates a pairs mint nonce
-    function _incrementMintNonce(address partyOne, address partyTwo) private {
-        if (partyOne < partyTwo) {
-            mintNonce[partyOne][partyTwo]++;
-        } else {
-            mintNonce[partyTwo][partyOne]++;
-        }
-    }
-
-    // Performs oracle nonce-related checks
-    function _checkOracleNonce(uint256 _oracleNonce) internal view {
-        // Check whether input nonce is outdated
-        require((_oracleNonce <= oracleNonce) && (oracleNonce - _oracleNonce <= 1), "TFM: Oracle nonce has expired");
-
-        // Check whether contract is locked due to oracle nonce not being updated
-        require(
-            (block.timestamp < latestOracleNonceUpdateTime + lockTime),
-            "TFM: Contract locked due as oracle nonce has not been updated"
-        );
     }
 
     function _deleteStrategy(uint256 _strategyId) internal {

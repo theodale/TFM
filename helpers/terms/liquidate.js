@@ -6,8 +6,8 @@ const getLiquidationTerms = async (
   oracle,
   strategyId,
   compensation,
-  alphaFee,
-  omegaFee,
+  alphaPenalisation,
+  omegaPenalisation,
   postLiquidationAmplitude
 ) => {
   const oracleNonce = await TFM.oracleNonce();
@@ -48,8 +48,8 @@ const getLiquidationTerms = async (
       strategy.phase,
       oracleNonce,
       compensation,
-      alphaFee,
-      omegaFee,
+      alphaPenalisation,
+      omegaPenalisation,
       postLiquidationAmplitude,
       alphaInitialAllocation,
       omegaInitialAllocation,
@@ -61,8 +61,8 @@ const getLiquidationTerms = async (
   const liquidationTerms = {
     oracleNonce,
     compensation,
-    alphaFee,
-    omegaFee,
+    alphaPenalisation,
+    omegaPenalisation,
     postLiquidationAmplitude,
   };
 

@@ -2,9 +2,14 @@ const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 const { freshDeployment } = require("../helpers/fixtures.js");
-const { getSpearmintTerms } = require("../helpers/terms/spearmint");
+const { getMintTerms } = require("../helpers/terms/mint.js");
 const { signSpearmint } = require("../helpers/signing/spearmint.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
+const {
+  checkCollateralAllocations,
+  checkUnallocatedCollateralBalances,
+  checkPoolBalanceChanges,
+} = require("../helpers/assertions.js");
 const { STRATEGY, SPEARMINT } = require("./test-parameters.js");
 
 describe("SPEARMINT", () => {
@@ -65,59 +70,37 @@ describe("SPEARMINT", () => {
       expect(strategy.actionNonce).to.equal(0);
     });
 
-    it("Correct resulting collateral state (allocated/unallocated)", async () => {
-      const alphaAllocatedCollateral =
-        await this.CollateralManager.allocatedCollateral(
-          this.alice.address,
-          this.strategyId
-        );
-      const omegaAllocatedCollateral =
-        await this.CollateralManager.allocatedCollateral(
-          this.bob.address,
-          this.strategyId
-        );
-
-      // Check collateral alloacted to newly minted strategy
-      expect(alphaAllocatedCollateral).to.equal(
-        SPEARMINT.alphaCollateralRequirement
+    it("Correct strategy collateral allocations", async () => {
+      await checkCollateralAllocations(
+        this.CollateralManager,
+        this.strategyId,
+        [this.alice, this.bob],
+        [
+          SPEARMINT.alphaCollateralRequirement,
+          SPEARMINT.omegaCollateralRequirement,
+        ]
       );
-      expect(omegaAllocatedCollateral).to.equal(
-        SPEARMINT.omegaCollateralRequirement
-      );
-
-      const alphaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.alice.address,
-          this.Basis.address
-        );
-      const omegaUnallocatedCollateral =
-        await this.CollateralManager.unallocatedCollateral(
-          this.bob.address,
-          this.Basis.address
-        );
-
-      // Remaing unallocated collateral should be zero as exact required amounts were deposited
-      expect(alphaUnallocatedCollateral).to.equal(0);
-      expect(omegaUnallocatedCollateral).to.equal(0);
     });
 
-    it("Tokens used for fee/premium taken from minter's personal pools", async () => {
-      const alicePersonalPoolAddress =
-        await this.CollateralManager.personalPools(this.alice.address);
-      const bobPersonalPoolAddress = await this.CollateralManager.personalPools(
-        this.bob.address
+    it("Correct unallocated collateral balances post-spearmint", async () => {
+      await checkUnallocatedCollateralBalances(
+        this.CollateralManager,
+        this.Basis,
+        [this.alice, this.bob],
+        [0, 0]
       );
+    });
 
-      // Check tokens leave pools
-      await expect(this.spearmintTransaction).to.changeTokenBalance(
+    it("Premium exchanged between and fees taken from personal pools", async () => {
+      await checkPoolBalanceChanges(
+        this.CollateralManager,
         this.Basis,
-        alicePersonalPoolAddress,
-        SPEARMINT.alphaFee.add(SPEARMINT.premium).mul(-1)
-      );
-      await expect(this.spearmintTransaction).to.changeTokenBalance(
-        this.Basis,
-        bobPersonalPoolAddress,
-        SPEARMINT.omegaFee.sub(SPEARMINT.premium).mul(-1)
+        [this.alice, this.bob],
+        [
+          SPEARMINT.alphaFee.add(SPEARMINT.premium).mul(-1),
+          SPEARMINT.omegaFee.sub(SPEARMINT.premium).mul(-1),
+        ],
+        this.spearmintTransaction
       );
     });
 
@@ -136,39 +119,38 @@ describe("SPEARMINT", () => {
     });
   });
 
-  // TODO:
-  // - Insufficient collateral for all requirements, fees, preimium
-  // - Incorrect signatures terms + approvals
-  // - oracle nonce incorrect -> check this in another folder - check this method reverts
-  // - mint nonce incorrect - increments mint nonce
-
   describe("Reversions", () => {
     beforeEach(async () => {
-      ({ spearmintTerms: this.spearmintTerms, oracleSignature } =
-        await getSpearmintTerms(
-          this.TFM,
-          this.oracle,
-          STRATEGY.expiry,
-          SPEARMINT.alphaCollateralRequirement,
-          SPEARMINT.omegaCollateralRequirement,
-          SPEARMINT.alphaFee,
-          SPEARMINT.omegaFee,
-          this.BRA,
-          this.KET,
-          this.Basis,
-          STRATEGY.amplitude,
-          STRATEGY.phase
-        ));
+      ({ mintTerms: this.mintTerms, oracleSignature } = await getMintTerms(
+        this.TFM,
+        this.oracle,
+        STRATEGY.expiry,
+        SPEARMINT.alphaCollateralRequirement,
+        SPEARMINT.omegaCollateralRequirement,
+        SPEARMINT.alphaFee,
+        SPEARMINT.omegaFee,
+        this.BRA,
+        this.KET,
+        this.Basis,
+        STRATEGY.amplitude,
+        STRATEGY.phase
+      ));
 
-      this.spearmintParameters = await signSpearmint(
-        this.alice,
-        this.bob,
-        oracleSignature,
-        SPEARMINT.premium,
-        STRATEGY.transferable,
-        this.TFM
-      );
+      // this.spearmintParameters = await signSpearmint(
+      //   this.alice,
+      //   this.bob,
+      //   oracleSignature,
+      //   SPEARMINT.premium,
+      //   STRATEGY.transferable,
+      //   this.TFM
+      // );
     });
+
+    // TODO:
+    // - Insufficient collateral for all requirements, fees, preimium
+    // - Incorrect signatures terms + approvals
+    // - oracle nonce incorrect -> check this in another folder - check this method reverts
+    // - mint nonce incorrect - increments mint nonce
 
     it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
       // this.CollateralManager.withdraw();

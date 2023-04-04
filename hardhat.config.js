@@ -6,6 +6,9 @@ require("dotenv").config();
 
 module.exports = {
   solidity: "0.8.14",
+  paths: {
+    tests: "./tests",
+  },
   networks: {
     mumbai: {
       url: process.env.RPC_URL,

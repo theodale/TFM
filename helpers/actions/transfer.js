@@ -59,7 +59,8 @@ const transfer = async (
     staticParty,
     oracleSignature,
     strategyId,
-    premium
+    premium,
+    TFM
   );
 
   const transferTransaction = await TFM.transfer(

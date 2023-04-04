@@ -1,5 +1,5 @@
 const { mintAndDeposit } = require("../collateral-management.js");
-const { getSpearmintTerms } = require("../terms/spearmint.js");
+const { getMintTerms } = require("../terms/mint.js");
 const { signSpearmint } = require("../signing/spearmint.js");
 
 const spearmint = async (
@@ -40,7 +40,7 @@ const spearmint = async (
 
   // SPEARMINT
 
-  const { oracleSignature, spearmintTerms } = await getSpearmintTerms(
+  const { oracleSignature, mintTerms } = await getMintTerms(
     TFM,
     oracle,
     expiry,
@@ -55,7 +55,7 @@ const spearmint = async (
     phase
   );
 
-  const spearmintParameters = await signSpearmint(
+  const { alphaSignature, omegaSignature } = await signSpearmint(
     alpha,
     omega,
     oracleSignature,
@@ -64,11 +64,21 @@ const spearmint = async (
     TFM
   );
 
+  const mintParameters = {
+    oracleSignature,
+    alpha: alpha.address,
+    omega: omega.address,
+    premium,
+    transferable,
+  };
+
   const strategyId = await TFM.strategyCounter();
 
   const spearmintTransaction = await TFM.spearmint(
-    spearmintTerms,
-    spearmintParameters
+    mintTerms,
+    mintParameters,
+    alphaSignature,
+    omegaSignature
   );
 
   return { strategyId, spearmintTransaction };
