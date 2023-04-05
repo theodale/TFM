@@ -17,7 +17,11 @@ The options layer of the future.
 
 ### Novation
 
-- Novation signed data is offered by oracle for
+- Strategies have payouts
+- If payouts are proportional, i.e. the scale the same with spot price changes, if a party occupies a position on one strategy that receives payout and one on another that requires making a proportional payout, we can alter the two strategies to reduce overall collateral requirements (for this middle party) whilst maintaining the same potential payouts for all parties involved.
+
+- Strategies with opposite payout directions can be novated if alphaOne == alphaTwo or omegaOne = omegaTwo
+- Strategies with same payout direction require the opposite
 
 ### Oracle
 

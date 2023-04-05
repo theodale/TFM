@@ -129,7 +129,6 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Spearmint(strategyId);
     }
 
-    // CALL IT TFM ORALCE
     // Approved third party mints a strategy for two users
     function peppermint(MintTerms calldata _terms, MintParameters calldata _parameters) external {
         Utils.validateMintTerms(_terms, _parameters.oracleSignature, trufinOracle);
@@ -227,6 +226,8 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
             _terms.strategyOneOmegaFee
         );
 
+        // We may need to delete the strategy
+
         // Minimally alter strategy one to combimed form
         strategyOne.phase = _terms.resultingPhase;
         strategyOne.amplitude = _terms.resultingAmplitude;
@@ -258,10 +259,9 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         // Note on Covention:
         // We need middle to always be at B
-        // Other possibilities need to & can be expressed in this form
-
-        // For a given A -> B
+        // This allows us to assume that the middle party is at B in the contracts
         //
+        // Can all strategies be expressed in this form?
 
         address strategyOneAlpha = strategyOne.alpha;
         address strategyTwoOmega = strategyTwo.omega;
@@ -275,7 +275,6 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         // Strategy two may be deleted
         if (_terms.strategyTwoResultingAmplitude != 0) {
-            // Only apply state update if needed
             strategyTwo.alpha = _parameters.updateStrategyTwoOmega ? strategyOneAlpha : strategyTwoOmega;
             strategyTwo.amplitude = _terms.strategyTwoResultingAmplitude;
         } else {
