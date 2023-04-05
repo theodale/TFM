@@ -129,6 +129,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Spearmint(strategyId);
     }
 
+    // CALL IT TFM ORALCE
     // Approved third party mints a strategy for two users
     function peppermint(MintTerms calldata _terms, MintParameters calldata _parameters) external {
         Utils.validateMintTerms(_terms, _parameters.oracleSignature, trufinOracle);
@@ -212,6 +213,8 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
 
+        // Cache alpha and omega on stack and remove from validateCombinationTerms
+
         collateralManager.combine(
             _parameters.strategyOneId,
             _parameters.strategyTwoId,
@@ -234,6 +237,8 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
+    // ALL UTILS COULD BE REWRITTEN TO ONLY HAVE SINGLE STRATEGY STORAGE READ FOR EACH VARIABLE
+    // CHECK HOW MUCH GAS SAVE => USE GAS COUNTER
     // Alter two same-phase strategies shared between parties to reduce overall collateral requirements
     function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
         Strategy storage strategyOne = strategies[_parameters.strategyOneId];
@@ -243,18 +248,41 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
 
-        Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo, _terms.strategyOneAlphaMiddle);
+        Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo);
 
-        // collateralManager.novate()
+        // A -> B
+        // B -> C
 
-        // Change alpha and omega on strategies if required
+        // A -> C
+        // B -> A/C
 
-        // Delete any strategies in the case of a complete novation
-        if (_terms.strategyOneResultingAmplitude == 0) {
-            _deleteStrategy(_parameters.strategyOneId);
-        } else if (_terms.strategyTwoResultingAmplitude == 0) {
+        // Note on Covention:
+        // We need middle to always be at B
+        // Other possibilities need to & can be expressed in this form
+
+        // For a given A -> B
+        //
+
+        address strategyOneAlpha = strategyOne.alpha;
+        address strategyTwoOmega = strategyTwo.omega;
+
+        // Oracle signs novations with the middle party as omega in strategy one and alpha in strategy two
+        require(strategyOneAlpha == strategyOne.omega, "NOVATION: Strategies do not have required middle party");
+
+        // Update first strategy to novated state
+        strategyOne.omega = strategyTwoOmega;
+        strategyOne.amplitude = _terms.strategyOneResultingAmplitude;
+
+        // Strategy two may be deleted
+        if (_terms.strategyTwoResultingAmplitude != 0) {
+            // Only apply state update if needed
+            strategyTwo.alpha = _parameters.updateStrategyTwoOmega ? strategyOneAlpha : strategyTwoOmega;
+            strategyTwo.amplitude = _terms.strategyTwoResultingAmplitude;
+        } else {
             _deleteStrategy(_parameters.strategyTwoId);
         }
+
+        // collateralManager.novate();
 
         emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     }

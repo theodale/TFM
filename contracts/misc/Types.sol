@@ -14,7 +14,7 @@ struct Strategy {
     uint256 expiry;
     int256 amplitude;
     int256[2][] phase;
-    // Prevents replay of strategy action meta-transactions
+    // Prevents replay of certain strategy action meta-transactions
     uint256 actionNonce;
 }
 
@@ -101,12 +101,8 @@ struct NovationTerms {
     // Characteristics of resulting strategies
     int256 strategyOneResultingAmplitude;
     int256 strategyTwoResultingAmplitude;
-    int256[2][] strategyOneResultingPhase;
-    int256[2][] strategyTwoResultingPhase;
     // Action fee paid by middle party
     uint256 fee;
-    // True/False if strategy one's alpha/omega is the middle party => neater if read this off chain?
-    bool strategyOneAlphaMiddle;
 }
 
 struct NovationParameters {
@@ -114,8 +110,10 @@ struct NovationParameters {
     uint256 strategyTwoId;
     bytes oracleSignature;
     bytes middlePartySignature;
+    // These are not used if their respective strategy is transferable
     bytes strategyOneNonMiddlePartySignature;
     bytes strategyTwoNonMiddlePartySignature;
+    bool updateStrategyTwoOmega;
 }
 
 // EXERCISE
@@ -135,14 +133,11 @@ struct ExerciseParameters {
 
 struct LiquidationTerms {
     uint256 oracleNonce;
-    // Basis transferred from one party to other as compensation for any value loss they experience due to amplitude reduction
     // If +ve/-ve => alpha/omega pays omega/alpha absolute compensation
     int256 compensation;
-    // The collateral taken from alpha's allocation by the protocol
+    // The collateral taken from allocations by the protocol
     uint256 alphaPenalisation;
-    // The collateral taken from omega's allocation by the protocol
     uint256 omegaPenalisation;
-    // The value the liquidated strategy's amplitude is reduced to in order to maintain collateralisation
     int256 postLiquidationAmplitude;
 }
 

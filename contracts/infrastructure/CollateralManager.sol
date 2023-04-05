@@ -126,7 +126,7 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
         }
     }
 
-    // Premium trasnferred before collateral locked and fee taken
+    // Premium transferred before collateral locked and fee taken
     function transfer(
         uint256 _strategyId,
         address _sender,
@@ -202,6 +202,37 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
         delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
     }
 
+    // Use an enum
+    // Do non middle parties collateral requirements change? NO -> but they may be swapped
+    function novate(
+        uint256 _strategyOneId,
+        uint256 _strategyTwoId,
+        address _strategyOneAlpha,
+        address _middleParty,
+        address _strategyTwoOmega,
+        address _basis,
+        uint256 _resultingStrategyOneAlphaCollateralRequirement,
+        uint256 _fee,
+        uint256 _strategyTwoResultingAmplitiude
+    ) external tfmOnly {
+        // We need to free remaining collateral
+        // Can assume new collateral requirements are less than allocated collaterals => is this true?
+        // unallocatedCollateral[_strategyOneAlpha][_basis] += allocatedCollateral[_strategyOneAlpha][_strategyOneId];
+        // allocatedCollateral[_strategyOneAlpha][_strategyOneId] = _resultingStrategyOneAlphaCollateralRequirement;
+        // allocatedCollateral[_middleParty][_strategyOneId] = _resultingStrategyOneOmegaCollateralRequirement;
+        // if (_strategyTwoResultingAmplitiude != 0) {
+        //     allocatedCollateral[_middleParty][_strategyTwoId] = _resultingStrategyTwoAlphaCollateralRequirement;
+        //     allocatedCollateral[_strategyTwoOmega][_strategyTwoId] = _resultingStrategyTwoOmegaCollateralRequirement;
+        // } else {
+        //     delete allocatedCollateral[_middleParty][_strategyTwoId];
+        //     delete allocatedCollateral[_strategyTwoOmega][_strategyTwoId];
+        // }
+        // // Transfer fee
+        // unallocatedCollateral[_middleParty][_basis] -= _fee;
+        // // Maybe this should update unallocatedCollateral (as above?)
+        // _transferFromUsersPool(_middleParty, _basis, treasury, _fee);
+    }
+
     // Potential DoS if opposition does not have enough allocated collateral - if the fee is greater than their post payout collateral
     function exercise(
         uint256 _strategyId,
@@ -230,9 +261,6 @@ contract CollateralManager is ReentrancyGuardUpgradeable, OwnableUpgradeable, IC
     }
 
     // LIQUIDATE
-
-    // whats going on here!
-    // Do all balances for everything
 
     // Fees are taken from the liquidator's collateral => not from unallocated pool as per usual => RENAME
     function liquidate(

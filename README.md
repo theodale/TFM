@@ -15,6 +15,10 @@ The options layer of the future.
   - Novating
   - Exercising
 
+### Novation
+
+- Novation signed data is offered by oracle for
+
 ### Oracle
 
 - The TF oracle signs a set of terms for a potential action.

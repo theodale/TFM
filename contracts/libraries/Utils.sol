@@ -91,7 +91,7 @@ library Utils {
 
             require(
                 _isValidSignature(hash, _parameters.staticPartySignature, staticParty),
-                "Static party signature invalid"
+                "TRANSFER: Static party signature invalid"
             );
         }
     }
@@ -142,12 +142,12 @@ library Utils {
 
         require(
             _isValidSignature(hash, _strategyOneAlphaSignature, _strategyOne.alpha),
-            "TFM: Invalid strategy two alpha signature"
+            "COMBINATION: Invalid strategy two alpha signature"
         );
 
         require(
             _isValidSignature(hash, _strategyOneOmegaSignature, _strategyOne.omega),
-            "TFM: Invalid strategy one omega signature"
+            "COMBINATION: Invalid strategy one omega signature"
         );
     }
 
@@ -171,6 +171,7 @@ library Utils {
             );
         }
 
+        // Investigate security risk with two phases in message => should be ok if not next to each other?
         bytes memory message = abi.encodePacked(
             abi.encodePacked(
                 _strategyOne.expiry,
@@ -208,13 +209,6 @@ library Utils {
         address _oracle,
         bytes calldata _oracleSignature
     ) external view {
-        // Ensure terms are for correct middle party configuration
-        if (_terms.strategyOneAlphaMiddle) {
-            require(_strategyOne.alpha == _strategyTwo.omega, "NOVATE: Strategy one alpha not middle party");
-        } else {
-            require(_strategyOne.omega == _strategyTwo.alpha, "NOVATE: Strategy one omega not middle party");
-        }
-
         bytes memory message = abi.encodePacked(
             abi.encodePacked(
                 _strategyOne.expiry,
@@ -234,27 +228,23 @@ library Utils {
                 _terms.strategyOneResultingAlphaCollateralRequirement,
                 _terms.strategyOneResultingOmegaCollateralRequirement,
                 _terms.strategyTwoResultingAlphaCollateralRequirement,
-                _terms.strategyTwoResultingOmegaCollateralRequirement,
-                _terms.strategyOneResultingPhase,
-                _terms.strategyTwoResultingPhase
+                _terms.strategyTwoResultingOmegaCollateralRequirement
             ),
             abi.encodePacked(
                 _terms.strategyOneResultingAmplitude,
                 _terms.strategyTwoResultingAmplitude,
                 _terms.fee,
-                _terms.oracleNonce,
-                _terms.strategyOneAlphaMiddle
+                _terms.oracleNonce
             )
         );
 
-        require(_isValidSignature(message, _oracleSignature, _oracle), "NOVATE: Invalid Trufin oracle signature");
+        require(_isValidSignature(message, _oracleSignature, _oracle), "NOVATION: Invalid Trufin oracle signature");
     }
 
     function checkNovationApprovals(
         NovationParameters calldata _parameters,
         Strategy storage _strategyOne,
-        Strategy storage _strategyTwo,
-        bool _strategyOneAlphaMiddle
+        Strategy storage _strategyTwo
     ) external view {
         // Do we need action nonce here?
         bytes memory message = abi.encodePacked(
@@ -267,29 +257,22 @@ library Utils {
 
         bytes32 hash = _generateMessageHash(message);
 
-        address middleParty = _strategyOneAlphaMiddle ? _strategyOne.alpha : _strategyOne.omega;
-
         require(
-            _isValidSignature(hash, _parameters.middlePartySignature, middleParty),
-            "TFM: Invalid strategy two alpha signature"
+            _isValidSignature(hash, _parameters.middlePartySignature, _strategyOne.omega),
+            "NOVATION: Invalid strategy two alpha signature"
         );
 
         if (!_strategyOne.transferable) {
-            address approver = _strategyOneAlphaMiddle ? _strategyOne.omega : _strategyOne.alpha;
-
             require(
-                _isValidSignature(hash, _parameters.strategyOneNonMiddlePartySignature, approver),
-                "TFM: Invalid strategy one omega signature"
+                _isValidSignature(hash, _parameters.strategyOneNonMiddlePartySignature, _strategyOne.alpha),
+                "NOVATION: Invalid strategy one omega signature"
             );
         }
 
         if (!_strategyTwo.transferable) {
-            address strategyTwoAlpha = _strategyTwo.alpha;
-            address approver = middleParty == strategyTwoAlpha ? _strategyTwo.omega : strategyTwoAlpha;
-
             require(
-                _isValidSignature(hash, _parameters.strategyTwoNonMiddlePartySignature, approver),
-                "TFM: Invalid strategy one omega signature"
+                _isValidSignature(hash, _parameters.strategyTwoNonMiddlePartySignature, _strategyTwo.omega),
+                "NOVATION: Invalid strategy one omega signature"
             );
         }
     }
@@ -346,7 +329,7 @@ library Utils {
             )
         );
 
-        require(_isValidSignature(message, _oracleSignature, _oracle), "LIQUIDATE: Invalid Trufin oracle signature");
+        require(_isValidSignature(message, _oracleSignature, _oracle), "LIQUIDATION: Invalid Trufin oracle signature");
     }
 
     // *** UPDATE NONCE ***
