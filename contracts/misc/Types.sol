@@ -18,6 +18,11 @@ struct Strategy {
     uint256 actionNonce;
 }
 
+struct PeppermintDeposit {
+    uint256 amount;
+    uint256 unlockTime;
+}
+
 // *** ACTIONS ***
 
 // MINT

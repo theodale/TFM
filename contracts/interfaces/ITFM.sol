@@ -5,8 +5,6 @@ pragma solidity =0.8.14;
 import "../misc/Types.sol";
 
 interface ITFM {
-    event Initialization();
-
     event Spearmint(uint256 strategyId);
 
     event Peppermint(uint256 strategyId);

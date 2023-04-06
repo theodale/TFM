@@ -57,4 +57,14 @@ interface ICollateralManager {
     event Deposit(address indexed user, address indexed basis, uint256 amount);
 
     event Withdrawal(address indexed user, address indexed basis, uint256 amount);
+
+    event PeppermintWithdrawal(
+        address indexed user,
+        address indexed pepperminter,
+        address indexed basis,
+        uint256 peppermintDepositId,
+        uint256 amount
+    );
+
+    event WalletCreated(address _user, address _wallet);
 }

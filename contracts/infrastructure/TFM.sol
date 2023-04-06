@@ -2,27 +2,26 @@
 
 pragma solidity =0.8.14;
 
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "../misc/Types.sol";
 import "../libraries/Utils.sol";
 import "../interfaces/ICollateralManager.sol";
 import "../interfaces/ITFM.sol";
+import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
 // **************************************** THE FIELD MACHINE ****************************************
 // A peer-to-peer options trading base layer
 // Created by Field Labs
-contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable, ITFM {
+contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     // *** STATE VARIABLES ***
 
     // Signs and validates data packages
     address trufinOracle;
 
-    // Used to ensure only recent data packages are valid => updated periodically
+    // Used to ensure oracle terms are up to date => updated periodically
     uint256 public oracleNonce;
 
     // Time at which the oracle nonce was last updated
@@ -31,13 +30,13 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
     // Contract will lock itself if the oracle nonce has not been updated in the last `lockTime` seconds
     uint256 lockTime;
 
-    // Prevents replay attacks using spearminter signatures
+    // Prevents replay attacks using spearmint signatures
     // See getMintNonce() function for key/value meanings
     mapping(address => mapping(address => uint256)) internal mintNonce;
 
     // Stores strategy states
-    // Mapts strategy ID => strategy
-    mapping(uint256 => Strategy) internal strategies;
+    // Maps strategy ID => strategy
+    mapping(uint256 => Strategy) private strategies;
 
     // Stores ID of the next strategy to be minted
     uint256 public strategyCounter;
@@ -45,31 +44,28 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
     // Address permitted to perform liquidations
     address internal liquidator;
 
-    // Protocol's collateral management contract
+    // Performs collateral related logic for the TFM
     ICollateralManager public collateralManager;
 
     // *** INITIALIZER ***
 
     function initialize(
-        address _collateralManager,
+        ICollateralManager _collateralManager,
         address _owner,
         address _liquidator,
-        address _trufinOracle
+        address _trufinOracle,
+        uint256 _lockTime
     ) external initializer {
-        // Emit initialization event first so TFM entity created on subgraph before its ownership is edited
-        emit Initialization();
-
-        // Initialize parent state
-        __ReentrancyGuard_init();
+        // Initialize inherited state
         __Ownable_init();
         transferOwnership(_owner);
         __UUPSUpgradeable_init();
 
-        // Set relevant addresses & contracts
+        // Initialize contract state
         liquidator = _liquidator;
-        collateralManager = ICollateralManager(_collateralManager);
+        collateralManager = _collateralManager;
         trufinOracle = _trufinOracle;
-        lockTime = 2 hours;
+        lockTime = _lockTime;
         latestOracleNonceUpdateTime = block.timestamp;
     }
 
@@ -92,7 +88,7 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
     // *** STRATEGY ACTIONS ***
 
     // Mint a new strategy between two parties
-    // Signatures verify alpha and omega mint approval
+    // Signatures verify parties approval
     function spearmint(
         MintTerms calldata _terms,
         MintParameters calldata _parameters,
@@ -228,18 +224,16 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
 
         // We may need to delete the strategy
 
-        // Minimally alter strategy one to combimed form
+        // Minimally alter strategy one to combined form
         strategyOne.phase = _terms.resultingPhase;
         strategyOne.amplitude = _terms.resultingAmplitude;
 
-        // Deleting strategy two prevents approval signature replay => no need to increment action nonce
+        // Deleting strategy two prevents approval signature replay => no need to increment strategy one's action nonce
         _deleteStrategy(_parameters.strategyTwoId);
 
         emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
-    // ALL UTILS COULD BE REWRITTEN TO ONLY HAVE SINGLE STRATEGY STORAGE READ FOR EACH VARIABLE
-    // CHECK HOW MUCH GAS SAVE => USE GAS COUNTER
     // Alter two same-phase strategies shared between parties to reduce overall collateral requirements
     function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
         Strategy storage strategyOne = strategies[_parameters.strategyOneId];
@@ -250,18 +244,6 @@ contract TFM is ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable,
         Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
 
         Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo);
-
-        // A -> B
-        // B -> C
-
-        // A -> C
-        // B -> A/C
-
-        // Note on Covention:
-        // We need middle to always be at B
-        // This allows us to assume that the middle party is at B in the contracts
-        //
-        // Can all strategies be expressed in this form?
 
         address strategyOneAlpha = strategyOne.alpha;
         address strategyTwoOmega = strategyTwo.omega;

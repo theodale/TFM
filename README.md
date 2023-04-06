@@ -2,6 +2,24 @@
 
 The options layer of the future.
 
+### Architecture
+
+- The `TFM` central contract managers all option-related functionality.
+- Collateral operations are performed for the `TFM` by a `CollateralManager` contract.
+
+# Minting
+
+- Peppermint vs spearmint
+
+### Spearmint
+
+- Mint nonce => why?
+- Premium is exchanged before fees and collateral requirements are taken. This means receiver of premium can utilise for said reasons.
+
+### Wallets
+
+- Use minimal clones proxy
+
 ### Strategies
 
 - Strategies are combinations of one or more options held between two users.
@@ -19,8 +37,7 @@ The options layer of the future.
 
 - Strategies have payouts
 - If payouts are proportional, i.e. the scale the same with spot price changes, if a party occupies a position on one strategy that receives payout and one on another that requires making a proportional payout, we can alter the two strategies to reduce overall collateral requirements (for this middle party) whilst maintaining the same potential payouts for all parties involved.
-
-- Strategies with opposite payout directions can be novated if alphaOne == alphaTwo or omegaOne = omegaTwo
+- Strategies with opposite payout directions can be novated if alphaOne == alphaTwo or omegaOne == omegaTwo
 - Strategies with same payout direction require the opposite
 
 ### Oracle
