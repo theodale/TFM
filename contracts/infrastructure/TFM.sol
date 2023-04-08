@@ -2,8 +2,8 @@
 
 pragma solidity =0.8.14;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../libraries/Utils.sol";
 import "../interfaces/ICollateralManager.sol";
@@ -174,7 +174,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
             _parameters.premium
         );
 
-        // Increment strategy's action nonce to prevent replay using _signatures
+        // Increment strategy's action nonce to prevent signature replay
         strategy.actionNonce++;
 
         // Update state to reflect postition transfer
@@ -208,8 +208,6 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
         Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
 
-        // Cache alpha and omega on stack and remove from validateCombinationTerms
-
         collateralManager.combine(
             _parameters.strategyOneId,
             _parameters.strategyTwoId,
@@ -221,8 +219,6 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
             _terms.strategyOneAlphaFee,
             _terms.strategyOneOmegaFee
         );
-
-        // We may need to delete the strategy
 
         // Minimally alter strategy one to combined form
         strategyOne.phase = _terms.resultingPhase;
@@ -268,8 +264,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
         emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
-    // Call to finalise a position on a strategy
-    // Unallocates collateral not used for a payout
+    // Call to finalise a strategy's positions after it has expired
     function exercise(ExerciseTerms calldata _terms, ExerciseParameters calldata _parameters) external {
         _checkOracleNonce(_terms.oracleNonce);
 
@@ -290,28 +285,28 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
         emit Exercise(_parameters.strategyId);
     }
 
-    // *** MAINTENANCE ***
+    // // *** MAINTENANCE ***
 
-    function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
-        // Prevents replay of out-of-date signatures
-        require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
+    // function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
+    //     // Prevents replay of out-of-date signatures
+    //     require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
 
-        Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, trufinOracle);
+    //     Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, trufinOracle);
 
-        // Perform oracle state update
-        oracleNonce = _oracleNonce;
-        latestOracleNonceUpdateTime = block.timestamp;
+    //     // Perform oracle state update
+    //     oracleNonce = _oracleNonce;
+    //     latestOracleNonceUpdateTime = block.timestamp;
 
-        emit OracleNonceUpdated(_oracleNonce);
-    }
+    //     emit OracleNonceUpdated(_oracleNonce);
+    // }
 
     function liquidate(LiquidationTerms calldata _terms, LiquidationParameters calldata _params) external {
         require(msg.sender == liquidator, "TFM: Liquidator only");
 
         Strategy storage strategy = strategies[_params.strategyId];
 
-        uint256 alphaInitialCollateral = collateralManager.allocatedCollateral(strategy.alpha, _params.strategyId);
-        uint256 omegaInitialCollateral = collateralManager.allocatedCollateral(strategy.omega, _params.strategyId);
+        uint256 alphaInitialCollateral = collateralManager.allocations(strategy.alpha, _params.strategyId);
+        uint256 omegaInitialCollateral = collateralManager.allocations(strategy.omega, _params.strategyId);
 
         Utils.validateLiquidationTerms(
             _terms,
@@ -340,13 +335,13 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     // *** ADMIN SETTERS ***
 
-    function setLiquidator(address _liquidator) public onlyOwner {
-        liquidator = _liquidator;
-    }
+    // function setLiquidator(address _liquidator) public onlyOwner {
+    //     liquidator = _liquidator;
+    // }
 
-    function setCollateralManager(address _collateralManager) external onlyOwner {
-        collateralManager = ICollateralManager(_collateralManager);
-    }
+    // function setCollateralManager(address _collateralManager) external onlyOwner {
+    //     collateralManager = ICollateralManager(_collateralManager);
+    // }
 
     // *** INTERNAL METHODS ***
 

@@ -16,6 +16,8 @@ const transfer = async (
   recipient,
   staticParty = null
 ) => {
+  await CollateralManager.connect(recipient).createWallet();
+
   const strategy = await TFM.getStrategy(strategyId);
 
   let alphaTransfer;

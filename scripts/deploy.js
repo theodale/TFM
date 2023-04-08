@@ -12,13 +12,18 @@ const main = async () => {
 
   console.log("Utils: ", Utils.address);
 
+  const Wallet = await ethers.getContractFactory("Wallet");
+  const WalletImplementation = await Wallet.deploy();
+
+  console.log("Wallet Implementation: ", WalletImplementation.address);
+
   // Deploy CollateralManager
   const CollateralManagerFactory = await ethers.getContractFactory(
     "CollateralManager"
   );
   const CollateralManager = await upgrades.deployProxy(
     CollateralManagerFactory,
-    [owner.address, owner.address],
+    [owner.address, owner.address, WalletImplementation.address],
     {
       kind: "uups",
     }
@@ -34,7 +39,13 @@ const main = async () => {
   });
   const TFM = await upgrades.deployProxy(
     TFMFactory,
-    [CollateralManager.address, owner.address, owner.address, owner.address],
+    [
+      CollateralManager.address,
+      owner.address,
+      owner.address,
+      owner.address,
+      3600,
+    ],
     {
       unsafeAllowLinkedLibraries: true,
       kind: "uups",

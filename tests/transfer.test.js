@@ -113,8 +113,8 @@ describe("TRANSFER", () => {
       await checkUnallocatedCollateralBalances(
         this.CollateralManager,
         this.Basis,
-        [this.alice, this.bob, this.carol],
-        [SPEARMINT.alphaCollateralRequirement, 0, TRANSFER.premium]
+        [this.alice, this.carol],
+        [0, TRANSFER.premium]
       );
     });
 

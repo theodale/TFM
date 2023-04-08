@@ -52,7 +52,7 @@ interface ICollateralManager {
         uint256 _omegaFee
     ) external;
 
-    function allocatedCollateral(address _user, uint256 _strategyId) external returns (uint256);
+    function allocations(address _user, uint256 _strategyId) external returns (uint256);
 
     event Deposit(address indexed user, address indexed basis, uint256 amount);
 

@@ -14,11 +14,11 @@ const getLiquidationTerms = async (
 
   const strategy = await TFM.getStrategy(strategyId);
 
-  const alphaInitialAllocation = await collateralManager.allocatedCollateral(
+  const alphaInitialAllocation = await collateralManager.allocations(
     strategy.alpha,
     strategyId
   );
-  const omegaInitialAllocation = await collateralManager.allocatedCollateral(
+  const omegaInitialAllocation = await collateralManager.allocations(
     strategy.omega,
     strategyId
   );

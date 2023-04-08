@@ -23,6 +23,16 @@ const spearmint = async (
 ) => {
   // DEPOSIT MINTER COLLATERALS
 
+  const alphaWallet = await CollateralManager.wallets(alpha.address);
+  const omegaWallet = await CollateralManager.wallets(omega.address);
+
+  if (alphaWallet == ethers.constants.AddressZero) {
+    await CollateralManager.connect(alpha).createWallet();
+  }
+  if (omegaWallet == ethers.constants.AddressZero) {
+    await CollateralManager.connect(omega).createWallet();
+  }
+
   let alphaDeposit = alphaCollateralRequirement.add(alphaFee);
   let omegaDeposit = omegaCollateralRequirement.add(omegaFee);
 

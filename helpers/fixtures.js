@@ -9,13 +9,16 @@ async function freshDeployment() {
   const UtilsFactory = await ethers.getContractFactory("Utils");
   const Utils = await UtilsFactory.deploy();
 
+  const Wallet = await ethers.getContractFactory("Wallet");
+  const WalletImplementation = await Wallet.deploy();
+
   // Deploy CollateralManager
   const CollateralManagerFactory = await ethers.getContractFactory(
     "CollateralManager"
   );
   const CollateralManager = await upgrades.deployProxy(
     CollateralManagerFactory,
-    [treasury.address, owner.address],
+    [treasury.address, owner.address, WalletImplementation.address],
     {
       kind: "uups",
     }
@@ -34,6 +37,7 @@ async function freshDeployment() {
       owner.address,
       liquidator.address,
       oracle.address,
+      3600,
     ],
     {
       unsafeAllowLinkedLibraries: true,

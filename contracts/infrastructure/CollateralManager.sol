@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../interfaces/ICollateralManager.sol";
 import "../interfaces/IWallet.sol";
@@ -34,9 +34,10 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
     // Stores each user's wallet
     mapping(address => IWallet) public wallets;
 
+    // ISSUES IF ALPHA == OMEGA
     // Records how much collateral a user has allocated to a strategy
     // Maps user => strategy ID => amount
-    mapping(address => mapping(uint256 => uint256)) public allocatedCollateral;
+    mapping(address => mapping(uint256 => uint256)) public allocations;
 
     // Records how many unallocated basis tokens a user has available to provide as collateral
     // Maps user => basis => amount
@@ -47,7 +48,7 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
     mapping(address => mapping(address => mapping(address => mapping(uint256 => PeppermintDeposit))))
         public peppermintDeposits;
 
-    // Incrementing counters used to genenerate IDs that facilitate multiple deposits to the same pepperminter
+    // Incrementing counters used to genenerate IDs that distinguish multiple deposits to the same pepperminter
     mapping(address => mapping(address => mapping(address => uint256))) private peppermintDepositCounters;
 
     /// *** MODIFIERS ***
@@ -171,40 +172,22 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         IWallet alphaWallet = wallets[_alpha];
         IWallet omegaWallet = wallets[_omega];
 
-        // Process premium (could put this in internal method if used elsewhere)
-        if (_premium > 0) {
-            deposits[_alpha][_basis] -= uint256(_premium);
-            deposits[_alpha][_basis] += uint256(_premium);
+        _exchangePremium(_alpha, _omega, alphaWallet, omegaWallet, _basis, _premium);
 
-            _transferFromWallet(alphaWallet, _basis, address(omegaWallet), _alphaFee);
-        } else {
-            deposits[_alpha][_basis] += uint256(_premium);
-            deposits[_alpha][_basis] -= uint256(_premium);
+        // Set strategy allocations
+        allocations[_alpha][_strategyId] = _alphaCollateralRequirement;
+        allocations[_omega][_strategyId] = _omegaCollateralRequirement;
 
-            _transferFromWallet(omegaWallet, _basis, address(alphaWallet), _alphaFee);
-        }
-
+        // Reduce deposits
         deposits[_alpha][_basis] -= _alphaCollateralRequirement + _alphaFee;
         deposits[_omega][_basis] -= _omegaCollateralRequirement + _omegaFee;
 
-        // Set strategy allocations
-        allocatedCollateral[_alpha][_strategyId] = _alphaCollateralRequirement;
-        allocatedCollateral[_omega][_strategyId] = _omegaCollateralRequirement;
-
-        // Transfer fees (fees are always non-zero)
+        // Transfer fees
         _transferFromWallet(alphaWallet, _basis, treasury, _alphaFee);
         _transferFromWallet(omegaWallet, _basis, treasury, _omegaFee);
     }
 
-    // Transfers ERC20 tokens from a user's wallet to a recipient address
-    function _transferFromWallet(address _user, address _token, address _recipient, uint256 _amount) internal {
-        wallets[_user].transferERC20(_token, _recipient, _amount);
-    }
-
-    // Transfers ERC20 tokens from a user's wallet to a recipient address
-    function _transferFromWallet(IWallet _wallet, address _token, address _recipient, uint256 _amount) internal {
-        _wallet.transferERC20(_token, _recipient, _amount);
-    }
+    function peppermint() external tfmOnly {}
 
     // Premium transferred before collateral locked and fee taken
     function transfer(
@@ -217,93 +200,71 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         uint256 _recipientFee,
         int256 _premium
     ) external tfmOnly {
-        // // Cache personal pool addresses
-        // address payable senderPool = _getWallet(_sender);
-        // address payable recipientPool = _getWallet(_recipient);
-        // _transferPremium(_sender, _recipient, senderPool, recipientPool, _basis, _premium);
-        // // Unallocate collateral sender has allocated to the strategy
-        // deposits[_sender][_basis] += allocatedCollateral[_sender][_strategyId];
-        // allocatedCollateral[_sender][_strategyId] = 0;
-        // // Allocate recipient's collateral to the strategy
-        // deposits[_recipient][_basis] -= recipientCollateralRequirement;
-        // allocatedCollateral[_recipient][_strategyId] += recipientCollateralRequirement;
-        // // Register fee payment
-        // deposits[_sender][_basis] -= _senderFee;
-        // deposits[_recipient][_basis] -= _recipientFee;
-        // // Take protocol fee
-        // _transferFromPersonalPool(senderPool, _basis, treasury, _senderFee);
-        // _transferFromPersonalPool(recipientPool, _basis, treasury, _recipientFee);
+        // Cache wallets
+        IWallet senderWallet = wallets[_sender];
+        IWallet recipientWallet = wallets[_recipient];
+
+        _exchangePremium(_sender, _recipient, senderWallet, recipientWallet, _basis, _premium);
+
+        // Update allocations
+        allocations[_sender][_strategyId] = 0;
+        allocations[_recipient][_strategyId] = recipientCollateralRequirement;
+
+        // Update deposits of transferring parties
+        deposits[_recipient][_basis] -= recipientCollateralRequirement + _recipientFee;
+
+        uint256 senderAllocation = allocations[_sender][_strategyId];
+
+        if (senderAllocation > _senderFee) {
+            deposits[_sender][_basis] += senderAllocation - _senderFee;
+        } else if (senderAllocation < _senderFee) {
+            deposits[_sender][_basis] -= _senderFee - senderAllocation;
+        }
+
+        // Transfer fees
+        _transferFromWallet(senderWallet, _basis, treasury, _senderFee);
+        _transferFromWallet(recipientWallet, _basis, treasury, _recipientFee);
     }
 
-    // Aligned is not needed => as allocated maps user address => strategy ID => amount of tokens
     function combine(
         uint256 _strategyOneId,
         uint256 _strategyTwoId,
-        address _strategyOneAlpha,
-        address _strategyOneOmega,
+        address _alphaOne,
+        address _omegaOne,
         address _basis,
         uint256 _resultingAlphaCollateralRequirement,
         uint256 _resultingOmegaCollateralRequirement,
-        uint256 _strategyOneAlphaFee,
-        uint256 _strategyOneOmegaFee
+        uint256 _alphaOneFee,
+        uint256 _omegaOneFee
     ) external tfmOnly {
-        // Get each combiners available collateral for their position on the combined strategy
-        // uint256 availableStrategyOneAlpha = deposits[_strategyOneAlpha][_basis] +
-        //     allocatedCollateral[_strategyOneAlpha][_strategyOneId] +
-        //     allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
-        // uint256 availableStrategyOneOmega = deposits[_strategyOneOmega][_basis] +
-        //     allocatedCollateral[_strategyOneOmega][_strategyOneId] +
-        //     allocatedCollateral[_strategyOneOmega][_strategyTwoId];
-        // // Set strategy one allocations
-        // allocatedCollateral[_strategyOneAlpha][_strategyOneId] = _resultingAlphaCollateralRequirement;
-        // allocatedCollateral[_strategyOneOmega][_strategyTwoId] = _resultingOmegaCollateralRequirement;
-        // // Set unallocated collateral
-        // deposits[_strategyOneAlpha][_basis] =
-        //     availableStrategyOneAlpha -
-        //     _resultingAlphaCollateralRequirement -
-        //     _strategyOneAlphaFee;
-        // deposits[_strategyOneOmega][_basis] =
-        //     availableStrategyOneOmega -
-        //     _resultingOmegaCollateralRequirement -
-        //     _strategyOneOmegaFee;
-        // _transferFromUsersPool(_strategyOneAlpha, _basis, treasury, _strategyOneAlphaFee);
-        // _transferFromUsersPool(_strategyOneOmega, _basis, treasury, _strategyOneOmegaFee);
-        // delete allocatedCollateral[_strategyOneAlpha][_strategyTwoId];
-        // delete allocatedCollateral[_strategyOneOmega][_strategyTwoId];
+        // Get each combiner's available collateral for their combined strategy position
+        uint256 availableAlphaOne = deposits[_alphaOne][_basis] +
+            allocations[_alphaOne][_strategyOneId] +
+            allocations[_alphaOne][_strategyTwoId];
+        uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
+            allocations[_omegaOne][_strategyOneId] +
+            allocations[_omegaOne][_strategyTwoId];
+
+        // Update deposits
+        deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
+        deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
+
+        // Set combined strategy allocations
+        allocations[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
+        allocations[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
+
+        // Delete redundant allocations
+        delete allocations[_alphaOne][_strategyTwoId];
+        delete allocations[_omegaOne][_strategyTwoId];
+
+        // Transfer fees
+        _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
+        _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
     }
 
-    // Use an enum
-    // Do non middle parties collateral requirements change? NO -> but they may be swapped
-    function novate(
-        uint256 _strategyOneId,
-        uint256 _strategyTwoId,
-        address _strategyOneAlpha,
-        address _middleParty,
-        address _strategyTwoOmega,
-        address _basis,
-        uint256 _resultingStrategyOneAlphaCollateralRequirement,
-        uint256 _fee,
-        uint256 _strategyTwoResultingAmplitiude
-    ) external tfmOnly {
-        // We need to free remaining collateral
-        // Can assume new collateral requirements are less than allocated collaterals => is this true?
-        // deposits[_strategyOneAlpha][_basis] += allocatedCollateral[_strategyOneAlpha][_strategyOneId];
-        // allocatedCollateral[_strategyOneAlpha][_strategyOneId] = _resultingStrategyOneAlphaCollateralRequirement;
-        // allocatedCollateral[_middleParty][_strategyOneId] = _resultingStrategyOneOmegaCollateralRequirement;
-        // if (_strategyTwoResultingAmplitiude != 0) {
-        //     allocatedCollateral[_middleParty][_strategyTwoId] = _resultingStrategyTwoAlphaCollateralRequirement;
-        //     allocatedCollateral[_strategyTwoOmega][_strategyTwoId] = _resultingStrategyTwoOmegaCollateralRequirement;
-        // } else {
-        //     delete allocatedCollateral[_middleParty][_strategyTwoId];
-        //     delete allocatedCollateral[_strategyTwoOmega][_strategyTwoId];
-        // }
-        // // Transfer fee
-        // deposits[_middleParty][_basis] -= _fee;
-        // // Maybe this should update deposits (as above?)
-        // _transferFromUsersPool(_middleParty, _basis, treasury, _fee);
-    }
+    function novate() external tfmOnly {}
 
-    // Potential DoS if opposition does not have enough allocated collateral - if the fee is greater than their post payout collateral
+    // Potential DoS => allocation is less than payout => liquidation is required
     function exercise(
         uint256 _strategyId,
         address _alpha,
@@ -311,25 +272,31 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         address _basis,
         int256 _payout
     ) external tfmOnly {
-        // // Transfer payout and unallocate all remaining collateral
-        // if (_payout > 0) {
-        //     deposits[_alpha][_basis] = allocatedCollateral[_alpha][_strategyId] - uint256(_payout);
-        //     deposits[_omega][_basis] += uint256(_payout) + allocatedCollateral[_omega][_strategyId];
-        //     _transferBetweenUsers(_alpha, _omega, _basis, uint256(_payout));
-        // } else {
-        //     // What if they already have unallocated collateral in their basket
-        //     deposits[_alpha][_basis] += uint256(-_payout) + allocatedCollateral[_alpha][_strategyId];
-        //     deposits[_omega][_basis] = allocatedCollateral[_omega][_strategyId] - uint256(-_payout);
-        //     _transferBetweenUsers(_omega, _alpha, _basis, uint256(-_payout));
-        // }
-        // // Delete state to add gas reduction
-        // allocatedCollateral[_alpha][_strategyId] = 0;
-        // allocatedCollateral[_omega][_strategyId] = 0;
+        uint256 absolutePayout;
+
+        if (_payout > 0) {
+            absolutePayout = uint256(_payout);
+
+            deposits[_alpha][_basis] += allocations[_alpha][_strategyId] - absolutePayout;
+            deposits[_omega][_basis] += absolutePayout + allocations[_omega][_strategyId];
+
+            _transferFromWallet(_alpha, _basis, address(wallets[_omega]), absolutePayout);
+        } else {
+            absolutePayout = uint256(-_payout);
+
+            deposits[_alpha][_basis] += absolutePayout + allocations[_alpha][_strategyId];
+            deposits[_omega][_basis] += allocations[_omega][_strategyId] - absolutePayout;
+
+            _transferFromWallet(_omega, _basis, address(wallets[_alpha]), absolutePayout);
+        }
+
+        // Delete exercised strategy allocations
+        delete allocations[_alpha][_strategyId];
+        delete allocations[_omega][_strategyId];
     }
 
-    // LIQUIDATE
+    // Solve issue with same alpha and omega allocations
 
-    // Fees are taken from the liquidator's collateral => not from unallocated pool as per usual => RENAME
     function liquidate(
         uint256 _strategyId,
         address _alpha,
@@ -338,86 +305,90 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         address _basis,
         uint256 _alphaPenalisation,
         uint256 _omegaPenalisation
-    ) external {
-        // address payable alphaPersonalPool = _getWallet(_alpha);
-        // address payable omegaPersonalPool = _getWallet(_omega);
+    ) external tfmOnly {
+        // Cache wallets on stack
+        IWallet alphaWallet = wallets[_alpha];
+        IWallet omegaWallet = wallets[_omega];
+
         // // Cache to avoid multiple storage writes
-        // uint256 alphaAllocatedCollateralReduction;
-        // uint256 omegaAllocatedCollateralReduction;
-        // // Process any compensation
-        // if (_compensation > 0) {
-        //     _transferFromPersonalPool(alphaPersonalPool, _basis, omegaPersonalPool, uint256(_compensation));
-        //     deposits[_omega][_basis] += uint256(_compensation);
-        //     alphaAllocatedCollateralReduction = uint256(_compensation);
-        // } else if (_compensation < 0) {
-        //     _transferFromPersonalPool(omegaPersonalPool, _basis, alphaPersonalPool, uint256(-_compensation));
-        //     deposits[_alpha][_basis] += uint256(-_compensation);
-        //     omegaAllocatedCollateralReduction = uint256(-_compensation);
-        // }
-        // // Transfer protocol fees
-        // if (_alphaPenalisation > 0) {
-        //     _transferFromPersonalPool(alphaPersonalPool, _basis, treasury, _alphaPenalisation);
-        //     allocatedCollateral[_alpha][_strategyId] -= _alphaPenalisation;
-        // }
-        // if (_alphaPenalisation > 0) {
-        //     _transferFromPersonalPool(omegaPersonalPool, _basis, treasury, _omegaPenalisation);
-        //     allocatedCollateral[_omega][_strategyId] -= _omegaPenalisation;
-        // }
-        // allocatedCollateral[_alpha][_strategyId] -= alphaAllocatedCollateralReduction;
-        // allocatedCollateral[_omega][_strategyId] -= omegaAllocatedCollateralReduction;
+        uint256 alphaReduction;
+        uint256 omegaReduction;
+
+        uint256 absoluteCompensation;
+
+        // Process any compensation
+        if (_compensation > 0) {
+            absoluteCompensation = uint256(_compensation);
+
+            deposits[_omega][_basis] += absoluteCompensation;
+            alphaReduction = absoluteCompensation;
+
+            _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
+        } else if (_compensation < 0) {
+            absoluteCompensation = uint256(-_compensation);
+
+            deposits[_alpha][_basis] += absoluteCompensation;
+            omegaReduction = absoluteCompensation;
+
+            _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
+        }
+
+        // Transfer protocol fees
+        if (_alphaPenalisation > 0) {
+            alphaReduction += _alphaPenalisation;
+
+            _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
+        }
+        if (_omegaPenalisation > 0) {
+            omegaReduction += _omegaPenalisation;
+
+            _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
+        }
+
+        allocations[_alpha][_strategyId] -= alphaReduction;
+        allocations[_omega][_strategyId] -= omegaReduction;
     }
 
     /// *** INTERNAL METHODS ***
 
-    // // Transfers ERC20 tokens from an input personal pool to a recipient
-    // function _transferFromPersonalPool(
-    //     address payable _pool,
-    //     address _token,
-    //     address _recipient,
-    //     uint256 _amount
-    // ) internal {
-    //     IWallet(_pool).transferERC20(_token, _recipient, _amount);
-    // }
+    // Transfers ERC20 tokens from a user's wallet to a recipient address
+    function _transferFromWallet(address _user, address _token, address _recipient, uint256 _amount) internal {
+        wallets[_user].transferERC20(_token, _recipient, _amount);
+    }
 
-    // // Transfers ERC20 tokens from a user's personal pool to a recipient
-    // function _transferFromUsersPool(address _user, address _token, address _recipient, uint256 _amount) internal {
-    //     address payable pool = _getWallet(_user);
+    // Transfers ERC20 tokens from a user's wallet to a recipient address
+    function _transferFromWallet(IWallet _wallet, address _token, address _recipient, uint256 _amount) internal {
+        _wallet.transferERC20(_token, _recipient, _amount);
+    }
 
-    //     IWallet(pool).transferERC20(_token, _recipient, _amount);
-    // }
+    // Exchanges a premium between two users
+    function _exchangePremium(
+        address _userOne,
+        address _userTwo,
+        IWallet _userOneWallet,
+        IWallet _userTwoWallet,
+        address _basis,
+        int256 _premium
+    ) internal {
+        uint256 absolutePremium;
 
-    // // Transfer ERC20 tokens from one pool to another
-    // function _transferBetweenUsers(address _userOne, address _userTwo, address _basis, uint256 _amount) internal {
-    //     address payable userOnePool = _getWallet(_userOne);
-    //     address payable userTwoPool = _getWallet(_userTwo);
+        if (_premium > 0) {
+            absolutePremium = uint256(_premium);
 
-    //     IWallet(userOnePool).transferERC20(_basis, userTwoPool, _amount);
-    // }
+            deposits[_userOne][_basis] -= absolutePremium;
+            deposits[_userTwo][_basis] += absolutePremium;
 
-    // Same as above but takes in pools instead of addresses
-    // function _transferBetweenPools()
+            _transferFromWallet(_userOneWallet, _basis, address(_userTwoWallet), absolutePremium);
+        } else {
+            absolutePremium = uint256(-_premium);
 
-    // // Execute a premium transfer between two parties
-    // function _transferPremium(
-    //     address _partyOne,
-    //     address _partyTwo,
-    //     address payable _partyOnePool,
-    //     address payable _partyTwoPool,
-    //     address _basis,
-    //     int256 _premium
-    // ) internal {
-    //     if (_premium > 0) {
-    //         IWallet(_partyOnePool).transferERC20(_basis, _partyTwoPool, uint256(_premium));
+            deposits[_userOne][_basis] += absolutePremium;
+            deposits[_userTwo][_basis] -= absolutePremium;
 
-    //         deposits[_partyOne][_basis] -= uint256(_premium);
-    //         deposits[_partyTwo][_basis] += uint256(_premium);
-    //     } else if (_premium < 0) {
-    //         IWallet(_partyTwoPool).transferERC20(_basis, _partyOnePool, uint256(-_premium));
+            _transferFromWallet(_userTwoWallet, _basis, address(_userOneWallet), absolutePremium);
+        }
+    }
 
-    //         deposits[_partyOne][_basis] += uint256(-_premium);
-    //         deposits[_partyTwo][_basis] -= uint256(-_premium);
-    //     }
-    // }
-
+    // Grants owner upgrade authorization
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }

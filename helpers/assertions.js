@@ -9,7 +9,7 @@ const checkCollateralAllocations = async (
   allocations
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const allocatedCollateral = await collateralManager.allocatedCollateral(
+    const allocatedCollateral = await collateralManager.allocations(
       users[i].address,
       strategyId
     );
@@ -25,7 +25,7 @@ const checkUnallocatedCollateralBalances = async (
   balances
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const unallocatedCollateral = await collateralManager.unallocatedCollateral(
+    const unallocatedCollateral = await collateralManager.deposits(
       users[i].address,
       basis.address
     );
@@ -42,7 +42,7 @@ const checkPoolBalanceChanges = async (
   transaction
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const personalPoolAddress = await CollateralManager.personalPools(
+    const personalPoolAddress = await CollateralManager.wallets(
       users[i].address
     );
 

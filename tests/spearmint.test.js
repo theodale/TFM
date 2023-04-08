@@ -152,9 +152,9 @@ describe("SPEARMINT", () => {
     // - oracle nonce incorrect -> check this in another folder - check this method reverts
     // - mint nonce incorrect - increments mint nonce
 
-    it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
-      // this.CollateralManager.withdraw();
-    });
+    // it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
+    //   // this.CollateralManager.withdraw();
+    // });
 
     // it("Reverts if omega has insufficient unallocated collateral to pay fee", async () => {
     //   // asd
