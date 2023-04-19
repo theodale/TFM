@@ -34,14 +34,13 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
     // Stores each user's wallet
     mapping(address => IWallet) public wallets;
 
-    // ISSUES IF ALPHA == OMEGA
     // Records how much collateral a user has allocated to a strategy
     // Maps user => strategy ID => amount
     mapping(address => mapping(uint256 => uint256)) public allocations;
 
     // Records how many unallocated basis tokens a user has available to provide as collateral
     // Maps user => basis => amount
-    mapping(address => mapping(address => uint256)) public deposits;
+    mapping(address => mapping(address => uint256)) public reserves;
 
     // Users escrow tokens to be used by a specific pepperminter
     // Maps user => pepperminter => basis => deposit ID => deposit
@@ -95,14 +94,14 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
 
         IERC20(_basis).safeTransferFrom(msg.sender, walletAddress, _amount);
 
-        deposits[msg.sender][_basis] += _amount;
+        reserves[msg.sender][_basis] += _amount;
 
         emit Deposit(msg.sender, _basis, _amount);
     }
 
     // Withdraw unallocated basis tokens
     function withdraw(address _basis, uint256 amount) external {
-        deposits[msg.sender][_basis] -= amount;
+        reserves[msg.sender][_basis] -= amount;
 
         _transferFromWallet(msg.sender, _basis, msg.sender, amount);
 
@@ -140,9 +139,16 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
 
         _transferFromWallet(msg.sender, _basis, msg.sender, amount);
 
+        // User can still withdraw any funds that are subsequently added to the deposit with a deleted struct
         delete peppermintDeposits[msg.sender][_pepperminter][_basis][_peppermintDepositId];
 
         emit PeppermintWithdrawal(msg.sender, _pepperminter, _basis, _peppermintDepositId, amount);
+    }
+
+    // *** ALLOCATION TOP UP ***
+
+    function topUp(uint256 _strategyId, uint256 amount) external {
+        // asd
     }
 
     // *** ADMIN SETTERS ***
@@ -157,37 +163,104 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
 
     // *** TFM COLLATERAL FUNCTIONALITY ***
 
-    function spearmint(
-        uint256 _strategyId,
-        address _alpha,
-        address _omega,
-        address _basis,
-        uint256 _alphaCollateralRequirement,
-        uint256 _omegaCollateralRequirement,
-        uint256 _alphaFee,
-        uint256 _omegaFee,
-        int256 _premium
-    ) external tfmOnly {
-        // Cache wallets
-        IWallet alphaWallet = wallets[_alpha];
-        IWallet omegaWallet = wallets[_omega];
-
-        _exchangePremium(_alpha, _omega, alphaWallet, omegaWallet, _basis, _premium);
-
-        // Set strategy allocations
-        allocations[_alpha][_strategyId] = _alphaCollateralRequirement;
-        allocations[_omega][_strategyId] = _omegaCollateralRequirement;
+    function executeSpearmint(ExecuteSpearmintParameters calldata _parameters) external tfmOnly {
+        (uint256 alphaRemaining, uint256 omegaRemaining) = _processMint(
+            _parameters,
+            reserves[_parameters.alpha][_parameters.basis],
+            reserves[_parameters.omega][_parameters.basis]
+        );
 
         // Reduce deposits
-        deposits[_alpha][_basis] -= _alphaCollateralRequirement + _alphaFee;
-        deposits[_omega][_basis] -= _omegaCollateralRequirement + _omegaFee;
-
-        // Transfer fees
-        _transferFromWallet(alphaWallet, _basis, treasury, _alphaFee);
-        _transferFromWallet(omegaWallet, _basis, treasury, _omegaFee);
+        reserves[_parameters.alpha][_parameters.basis] = alphaRemaining;
+        reserves[_parameters.omega][_parameters.basis] = omegaRemaining;
     }
 
-    function peppermint() external tfmOnly {}
+    // Performs mint logic shared between spearmints and peppermints
+    function _processMint(
+        ExecuteSpearmintParameters calldata _parameters,
+        uint256 availableAlpha,
+        uint256 availableOmega
+    ) internal tfmOnly returns (uint256 alphaRemaining, uint256 omegaRemaining) {
+        // Set strategy allocations
+        allocations[_parameters.alpha][_parameters.strategyId] = _parameters.alphaCollateralRequirement;
+        allocations[_parameters.omega][_parameters.strategyId] = _parameters.omegaCollateralRequirement;
+
+        // Cache wallets
+        IWallet alphaWallet = wallets[_parameters.alpha];
+        IWallet omegaWallet = wallets[_parameters.omega];
+
+        uint256 totalAlphaRequirement = _parameters.alphaCollateralRequirement + _parameters.alphaFee;
+        uint256 totalOmegaRequirement = _parameters.omegaCollateralRequirement + _parameters.omegaFee;
+
+        uint256 absolutePremium;
+
+        if (_parameters.premium > 0) {
+            absolutePremium = uint256(_parameters.premium);
+
+            availableOmega += absolutePremium;
+            totalAlphaRequirement += absolutePremium;
+
+            _transferFromWalletTwice(
+                alphaWallet,
+                _parameters.basis,
+                address(omegaWallet),
+                absolutePremium,
+                treasury,
+                _parameters.alphaFee
+            );
+            _transferFromWallet(omegaWallet, _parameters.basis, treasury, _parameters.omegaFee);
+        } else {
+            absolutePremium = uint256(-_parameters.premium);
+
+            availableAlpha += absolutePremium;
+            totalOmegaRequirement += absolutePremium;
+
+            _transferFromWalletTwice(
+                alphaWallet,
+                _parameters.basis,
+                address(alphaWallet),
+                absolutePremium,
+                treasury,
+                _parameters.omegaFee
+            );
+            _transferFromWallet(alphaWallet, _parameters.basis, treasury, _parameters.alphaFee);
+        }
+
+        alphaRemaining = availableAlpha - totalAlphaRequirement;
+        omegaRemaining = availableOmega - totalOmegaRequirement;
+    }
+
+    // // Pepperminters specify ID of each parties deposit
+    // function peppermint(
+    //     MintVariables calldata _parameters,
+    //     address _pepperminter,
+    //     uint256 _alphaDepositId,
+    //     uint256 _omegaDepositId
+    // ) external tfmOnly {
+    //     PeppermintDeposit storage alphaPeppermintDeposit = peppermintDeposits[_parameters.alpha][_pepperminter][
+    //         _parameters.basis
+    //     ][_alphaDepositId];
+    //     PeppermintDeposit storage omegaPeppermintDeposit = peppermintDeposits[_parameters.omega][_pepperminter][
+    //         _parameters.basis
+    //     ][_omegaDepositId];
+
+    //     // Pepperminter cannot use unlocked deposits
+    //     require(
+    //         block.timestamp < alphaPeppermintDeposit.unlockTime,
+    //         "COLLATERAL MANAGER: Alpha deposit is unlocked invalid"
+    //     );
+    //     require(block.timestamp < omegaPeppermintDeposit.unlockTime, "COLLATERAL MANAGER: Omega deposit is unlocked");
+
+    //     (uint256 alphaRemaining, uint256 omegaRemaining) = _processMint(
+    //         _parameters,
+    //         alphaPeppermintDeposit.amount,
+    //         omegaPeppermintDeposit.amount
+    //     );
+
+    //     // Reduce deposits
+    //     alphaPeppermintDeposit.amount = alphaRemaining;
+    //     omegaPeppermintDeposit.amount = omegaRemaining;
+    // }
 
     // Premium transferred before collateral locked and fee taken
     function transfer(
@@ -200,32 +273,52 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         uint256 _recipientFee,
         int256 _premium
     ) external tfmOnly {
-        // Cache wallets
-        IWallet senderWallet = wallets[_sender];
-        IWallet recipientWallet = wallets[_recipient];
-
-        _exchangePremium(_sender, _recipient, senderWallet, recipientWallet, _basis, _premium);
-
-        // Update allocations
-        allocations[_sender][_strategyId] = 0;
-        allocations[_recipient][_strategyId] = recipientCollateralRequirement;
-
-        // Update deposits of transferring parties
-        deposits[_recipient][_basis] -= recipientCollateralRequirement + _recipientFee;
-
-        uint256 senderAllocation = allocations[_sender][_strategyId];
-
-        if (senderAllocation > _senderFee) {
-            deposits[_sender][_basis] += senderAllocation - _senderFee;
-        } else if (senderAllocation < _senderFee) {
-            deposits[_sender][_basis] -= _senderFee - senderAllocation;
-        }
-
-        // Transfer fees
-        _transferFromWallet(senderWallet, _basis, treasury, _senderFee);
-        _transferFromWallet(recipientWallet, _basis, treasury, _recipientFee);
+        // uint256 requirementRecipient = recipientCollateralRequirement + _recipientFee;
+        // uint256 requirementSender = _senderFee;
+        // uint256 availableRecipient = deposits[_recipient][_basis];
+        // uint256 availableSender = deposits[_sender][_basis] + allocations[_sender][_strategyId];
+        // // Use block to avoid stack depth issues
+        // {
+        //     IWallet senderWallet = wallets[_sender];
+        //     IWallet recipientWallet = wallets[_recipient];
+        //     uint256 absolutePremium;
+        //     if (_premium > 0) {
+        //         absolutePremium = uint256(_premium);
+        //         _transferFromWalletTwice(
+        //             senderWallet,
+        //             _basis,
+        //             address(recipientWallet),
+        //             absolutePremium,
+        //             treasury,
+        //             _senderFee
+        //         );
+        //         _transferFromWallet(recipientWallet, _basis, treasury, _recipientFee);
+        //         availableRecipient += absolutePremium;
+        //         requirementSender += absolutePremium;
+        //     } else {
+        //         absolutePremium = uint256(-_premium);
+        //         _transferFromWalletTwice(
+        //             recipientWallet,
+        //             _basis,
+        //             address(senderWallet),
+        //             absolutePremium,
+        //             treasury,
+        //             _recipientFee
+        //         );
+        //         _transferFromWallet(senderWallet, _basis, treasury, _senderFee);
+        //         availableSender += absolutePremium;
+        //         requirementRecipient += absolutePremium;
+        //     }
+        // }
+        // // Update allocations
+        // delete allocations[_sender][_strategyId];
+        // allocations[_recipient][_strategyId] = recipientCollateralRequirement;
+        // // Update deposits of transferring parties
+        // deposits[_recipient][_basis] = availableRecipient - requirementRecipient;
+        // deposits[_sender][_basis] = availableSender - requirementSender;
     }
 
+    // Issue if alpha == omega
     function combine(
         uint256 _strategyOneId,
         uint256 _strategyTwoId,
@@ -237,29 +330,25 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         uint256 _alphaOneFee,
         uint256 _omegaOneFee
     ) external tfmOnly {
-        // Get each combiner's available collateral for their combined strategy position
-        uint256 availableAlphaOne = deposits[_alphaOne][_basis] +
-            allocations[_alphaOne][_strategyOneId] +
-            allocations[_alphaOne][_strategyTwoId];
-        uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
-            allocations[_omegaOne][_strategyOneId] +
-            allocations[_omegaOne][_strategyTwoId];
-
-        // Update deposits
-        deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
-        deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
-
-        // Set combined strategy allocations
-        allocations[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
-        allocations[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
-
-        // Delete redundant allocations
-        delete allocations[_alphaOne][_strategyTwoId];
-        delete allocations[_omegaOne][_strategyTwoId];
-
-        // Transfer fees
-        _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
-        _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
+        // // Get each combiner's available collateral for their combined strategy position
+        // uint256 availableAlphaOne = deposits[_alphaOne][_basis] +
+        //     allocations[_alphaOne][_strategyOneId] +
+        //     allocations[_alphaOne][_strategyTwoId];
+        // uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
+        //     allocations[_omegaOne][_strategyOneId] +
+        //     allocations[_omegaOne][_strategyTwoId];
+        // // Update deposits
+        // deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
+        // deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
+        // // Set combined strategy allocations
+        // allocations[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
+        // allocations[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
+        // // Delete redundant allocations
+        // delete allocations[_alphaOne][_strategyTwoId];
+        // delete allocations[_omegaOne][_strategyTwoId];
+        // // Transfer fees
+        // _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
+        // _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
     }
 
     function novate() external tfmOnly {}
@@ -272,30 +361,22 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         address _basis,
         int256 _payout
     ) external tfmOnly {
-        uint256 absolutePayout;
-
-        if (_payout > 0) {
-            absolutePayout = uint256(_payout);
-
-            deposits[_alpha][_basis] += allocations[_alpha][_strategyId] - absolutePayout;
-            deposits[_omega][_basis] += absolutePayout + allocations[_omega][_strategyId];
-
-            _transferFromWallet(_alpha, _basis, address(wallets[_omega]), absolutePayout);
-        } else {
-            absolutePayout = uint256(-_payout);
-
-            deposits[_alpha][_basis] += absolutePayout + allocations[_alpha][_strategyId];
-            deposits[_omega][_basis] += allocations[_omega][_strategyId] - absolutePayout;
-
-            _transferFromWallet(_omega, _basis, address(wallets[_alpha]), absolutePayout);
-        }
-
-        // Delete exercised strategy allocations
-        delete allocations[_alpha][_strategyId];
-        delete allocations[_omega][_strategyId];
+        // uint256 absolutePayout;
+        // if (_payout > 0) {
+        //     absolutePayout = uint256(_payout);
+        //     deposits[_alpha][_basis] += allocations[_alpha][_strategyId] - absolutePayout;
+        //     deposits[_omega][_basis] += absolutePayout + allocations[_omega][_strategyId];
+        //     _transferFromWallet(_alpha, _basis, address(wallets[_omega]), absolutePayout);
+        // } else {
+        //     absolutePayout = uint256(-_payout);
+        //     deposits[_alpha][_basis] += absolutePayout + allocations[_alpha][_strategyId];
+        //     deposits[_omega][_basis] += allocations[_omega][_strategyId] - absolutePayout;
+        //     _transferFromWallet(_omega, _basis, address(wallets[_alpha]), absolutePayout);
+        // }
+        // // Delete exercised strategy allocations
+        // delete allocations[_alpha][_strategyId];
+        // delete allocations[_omega][_strategyId];
     }
-
-    // Solve issue with same alpha and omega allocations
 
     function liquidate(
         uint256 _strategyId,
@@ -306,47 +387,36 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         uint256 _alphaPenalisation,
         uint256 _omegaPenalisation
     ) external tfmOnly {
-        // Cache wallets on stack
-        IWallet alphaWallet = wallets[_alpha];
-        IWallet omegaWallet = wallets[_omega];
-
+        // // Cache wallets on stack
+        // IWallet alphaWallet = wallets[_alpha];
+        // IWallet omegaWallet = wallets[_omega];
         // // Cache to avoid multiple storage writes
-        uint256 alphaReduction;
-        uint256 omegaReduction;
-
-        uint256 absoluteCompensation;
-
-        // Process any compensation
-        if (_compensation > 0) {
-            absoluteCompensation = uint256(_compensation);
-
-            deposits[_omega][_basis] += absoluteCompensation;
-            alphaReduction = absoluteCompensation;
-
-            _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
-        } else if (_compensation < 0) {
-            absoluteCompensation = uint256(-_compensation);
-
-            deposits[_alpha][_basis] += absoluteCompensation;
-            omegaReduction = absoluteCompensation;
-
-            _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
-        }
-
-        // Transfer protocol fees
-        if (_alphaPenalisation > 0) {
-            alphaReduction += _alphaPenalisation;
-
-            _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
-        }
-        if (_omegaPenalisation > 0) {
-            omegaReduction += _omegaPenalisation;
-
-            _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
-        }
-
-        allocations[_alpha][_strategyId] -= alphaReduction;
-        allocations[_omega][_strategyId] -= omegaReduction;
+        // uint256 alphaReduction;
+        // uint256 omegaReduction;
+        // uint256 absoluteCompensation;
+        // // Process any compensation
+        // if (_compensation > 0) {
+        //     absoluteCompensation = uint256(_compensation);
+        //     deposits[_omega][_basis] += absoluteCompensation;
+        //     alphaReduction = absoluteCompensation;
+        //     _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
+        // } else if (_compensation < 0) {
+        //     absoluteCompensation = uint256(-_compensation);
+        //     deposits[_alpha][_basis] += absoluteCompensation;
+        //     omegaReduction = absoluteCompensation;
+        //     _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
+        // }
+        // // Transfer protocol fees
+        // if (_alphaPenalisation > 0) {
+        //     alphaReduction += _alphaPenalisation;
+        //     _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
+        // }
+        // if (_omegaPenalisation > 0) {
+        //     omegaReduction += _omegaPenalisation;
+        //     _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
+        // }
+        // allocations[_alpha][_strategyId] -= alphaReduction;
+        // allocations[_omega][_strategyId] -= omegaReduction;
     }
 
     /// *** INTERNAL METHODS ***
@@ -361,32 +431,15 @@ contract CollateralManager is OwnableUpgradeable, ICollateralManager, UUPSUpgrad
         _wallet.transferERC20(_token, _recipient, _amount);
     }
 
-    // Exchanges a premium between two users
-    function _exchangePremium(
-        address _userOne,
-        address _userTwo,
-        IWallet _userOneWallet,
-        IWallet _userTwoWallet,
+    function _transferFromWalletTwice(
+        IWallet _walletOne,
         address _basis,
-        int256 _premium
+        address _recipientOne,
+        uint256 _amountOne,
+        address _recipientTwo,
+        uint256 _amountTwo
     ) internal {
-        uint256 absolutePremium;
-
-        if (_premium > 0) {
-            absolutePremium = uint256(_premium);
-
-            deposits[_userOne][_basis] -= absolutePremium;
-            deposits[_userTwo][_basis] += absolutePremium;
-
-            _transferFromWallet(_userOneWallet, _basis, address(_userTwoWallet), absolutePremium);
-        } else {
-            absolutePremium = uint256(-_premium);
-
-            deposits[_userOne][_basis] += absolutePremium;
-            deposits[_userTwo][_basis] -= absolutePremium;
-
-            _transferFromWallet(_userTwoWallet, _basis, address(_userOneWallet), absolutePremium);
-        }
+        _walletOne.transferERC20Twice(_basis, _recipientOne, _amountOne, _recipientTwo, _amountTwo);
     }
 
     // Grants owner upgrade authorization

@@ -114,7 +114,7 @@ describe("TRANSFER", () => {
         this.CollateralManager,
         this.Basis,
         [this.alice, this.carol],
-        [0, TRANSFER.premium]
+        [SPEARMINT.alphaCollateralRequirement, TRANSFER.premium]
       );
     });
 

@@ -5,17 +5,14 @@ pragma solidity =0.8.14;
 import "../misc/Types.sol";
 
 interface ICollateralManager {
-    function spearmint(
-        uint256 _strategyId,
-        address _alpha,
-        address _omega,
-        address _basis,
-        uint256 _alphaCollateralRequirement,
-        uint256 _omegaCollateralRequirement,
-        uint256 _alphaFee,
-        uint256 _omegaFee,
-        int256 _premium
-    ) external;
+    function executeSpearmint(ExecuteSpearmintParameters calldata _parameters) external;
+
+    // function peppermint(
+    //     MintVariables calldata _variables,
+    //     address _pepperminter,
+    //     uint256 _alphaDepositId,
+    //     uint256 _omegaDepositId
+    // ) external;
 
     function transfer(
         uint256 _strategyId,

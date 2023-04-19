@@ -5,9 +5,9 @@ async function freshDeployment() {
   const [owner, oracle, alice, bob, carol, liquidator, treasury] =
     await ethers.getSigners();
 
-  // Deploy Utils library
-  const UtilsFactory = await ethers.getContractFactory("Utils");
-  const Utils = await UtilsFactory.deploy();
+  // Deploy Validator library
+  const ValidatorFactory = await ethers.getContractFactory("Validator");
+  const Validator = await ValidatorFactory.deploy();
 
   const Wallet = await ethers.getContractFactory("Wallet");
   const WalletImplementation = await Wallet.deploy();
@@ -27,7 +27,7 @@ async function freshDeployment() {
   // Deploy TFM
   const TFMFactory = await ethers.getContractFactory("TFM", {
     libraries: {
-      Utils: Utils.address,
+      Validator: Validator.address,
     },
   });
   const TFM = await upgrades.deployProxy(
@@ -60,7 +60,7 @@ async function freshDeployment() {
     BRA,
     KET,
     Basis,
-    Utils,
+    Validator,
     owner,
     oracle,
     alice,

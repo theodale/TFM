@@ -74,21 +74,21 @@ const spearmint = async (
     TFM
   );
 
-  const mintParameters = {
+  const spearmintParameters = {
     oracleSignature,
     alpha: alpha.address,
     omega: omega.address,
     premium,
     transferable,
+    alphaSignature,
+    omegaSignature,
   };
 
   const strategyId = await TFM.strategyCounter();
 
   const spearmintTransaction = await TFM.spearmint(
     mintTerms,
-    mintParameters,
-    alphaSignature,
-    omegaSignature
+    spearmintParameters
   );
 
   return { strategyId, spearmintTransaction };

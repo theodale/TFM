@@ -25,4 +25,16 @@ contract Wallet is IWallet, Initializable {
     function transferERC20(address _basis, address _recipient, uint256 _amount) external isCollateralManager {
         IERC20(_basis).safeTransfer(_recipient, _amount);
     }
+
+    // We have this to avoid multiple calls from CollateralManager to wallet during calls
+    function transferERC20Twice(
+        address _basis,
+        address _recipientOne,
+        uint256 _amountOne,
+        address _recipientTwo,
+        uint256 _amountTwo
+    ) external isCollateralManager {
+        IERC20(_basis).safeTransfer(_recipientOne, _amountOne);
+        IERC20(_basis).safeTransfer(_recipientTwo, _amountTwo);
+    }
 }

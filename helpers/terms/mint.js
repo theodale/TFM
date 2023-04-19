@@ -18,7 +18,7 @@ const getMintTerms = async (
 
   const hash = ethers.utils.solidityKeccak256(
     [
-      "uint256",
+      "uint48",
       "uint256",
       "uint256",
       "uint256",

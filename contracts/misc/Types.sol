@@ -9,9 +9,10 @@ struct Strategy {
     address bra;
     address ket;
     address basis;
-    address alpha;
-    address omega;
-    uint256 expiry;
+    // These can be inferred from allocations
+    // address alpha;
+    // address omega;
+    uint48 expiry;
     int256 amplitude;
     int256[2][] phase;
     // Prevents replay of certain strategy action meta-transactions
@@ -28,7 +29,7 @@ struct PeppermintDeposit {
 // MINT
 
 struct MintTerms {
-    uint256 expiry;
+    uint48 expiry;
     uint256 alphaCollateralRequirement;
     uint256 omegaCollateralRequirement;
     uint256 alphaFee;
@@ -41,12 +42,24 @@ struct MintTerms {
     int256[2][] phase;
 }
 
-struct MintParameters {
+struct SpearmintParameters {
     bytes oracleSignature;
     address alpha;
     address omega;
     int256 premium;
     bool transferable;
+    bytes alphaSignature;
+    bytes omegaSignature;
+}
+
+struct PeppermintParameters {
+    bytes oracleSignature;
+    address alpha;
+    address omega;
+    int256 premium;
+    bool transferable;
+    uint256 alphaDepositId;
+    uint256 omegaDepositId;
 }
 
 // TRANSFER
@@ -149,4 +162,20 @@ struct LiquidationTerms {
 struct LiquidationParameters {
     uint256 strategyId;
     bytes oracleSignature;
+}
+
+// *** LOCAL PARAMETERS ***
+
+// Used to avoid stack depth issues
+
+struct ExecuteSpearmintParameters {
+    uint256 strategyId;
+    address alpha;
+    address omega;
+    address basis;
+    uint256 alphaCollateralRequirement;
+    uint256 omegaCollateralRequirement;
+    uint256 alphaFee;
+    uint256 omegaFee;
+    int256 premium;
 }

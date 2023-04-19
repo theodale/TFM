@@ -6,7 +6,15 @@ require("hardhat-contract-sizer");
 require("dotenv").config();
 
 module.exports = {
-  solidity: "0.8.14",
+  solidity: {
+    version: "0.8.14",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 100000,
+      },
+    },
+  },
   paths: {
     tests: "./tests",
   },
@@ -18,6 +26,11 @@ module.exports = {
   },
   etherscan: {
     apiKey: "PVWC1XQW7X1RVBPDEVYGP2DGSZWZTT4WMT",
+  },
+  gasReporter: {
+    enabled: true,
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    currency: "USD",
   },
 };
 

@@ -21,13 +21,13 @@ const getCombinationTerms = async (
 
   const hash = ethers.utils.solidityKeccak256(
     [
-      "uint256",
+      "uint48",
       "address",
       "address",
       "address",
       "int256",
       "int256[2][]",
-      "uint256",
+      "uint48",
       "address",
       "address",
       "address",
