@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "../interfaces/IWallet.sol";
-import "../interfaces/ICollateralManager.sol";
 
 contract Wallet is IWallet, Initializable {
     using SafeERC20 for IERC20;

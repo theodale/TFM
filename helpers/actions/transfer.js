@@ -1,10 +1,10 @@
-const { mintAndDeposit } = require("../collateral-management.js");
-const { getTransferTerms } = require("../terms/transfer.js");
+const { getOracleTransferSignature } = require("../oracle/transfer.js");
 const { signTransfer } = require("../signing/transfer.js");
+const { mintAndDeposit } = require("../utils.js");
 
 const transfer = async (
   TFM,
-  CollateralManager,
+  FundManager,
   Basis,
   strategyId,
   oracle,
@@ -16,19 +16,22 @@ const transfer = async (
   recipient,
   staticParty = null
 ) => {
-  await CollateralManager.connect(recipient).createWallet();
+  const recipientWallet = await FundManager.wallets(recipient.address);
+
+  if (recipientWallet == ethers.constants.AddressZero) {
+    await FundManager.connect(recipient).createWallet();
+  }
 
   const strategy = await TFM.getStrategy(strategyId);
 
   let alphaTransfer;
 
+  // May break if alpha == omega
   if (sender.address == strategy.alpha) {
     alphaTransfer = true;
   } else {
     alphaTransfer = false;
   }
-
-  // DEPOSIT REQUIRED COLLATERAL
 
   let senderDeposit = senderFee;
   let recipientDeposit = recipientFee.add(recipientCollateralRequirement);
@@ -39,13 +42,10 @@ const transfer = async (
     recipientDeposit = recipientDeposit.sub(premium);
   }
 
-  // Post required collateral
-  await mintAndDeposit(CollateralManager, Basis, sender, senderDeposit);
-  await mintAndDeposit(CollateralManager, Basis, recipient, recipientDeposit);
+  await mintAndDeposit(sender, senderDeposit, Basis, FundManager);
+  await mintAndDeposit(recipient, recipientDeposit, Basis, FundManager);
 
-  // TRANSFER
-
-  const { oracleSignature, transferTerms } = await getTransferTerms(
+  const oracleSignature = await getOracleTransferSignature(
     TFM,
     strategyId,
     oracle,
@@ -55,20 +55,48 @@ const transfer = async (
     alphaTransfer
   );
 
-  const transferParameters = await signTransfer(
+  const senderSignature = await signTransfer(
     sender,
     recipient,
-    staticParty,
     oracleSignature,
     strategyId,
     premium,
     TFM
   );
 
-  const transferTransaction = await TFM.transfer(
-    transferTerms,
-    transferParameters
+  const recipientSignature = await signTransfer(
+    recipient,
+    recipient,
+    oracleSignature,
+    strategyId,
+    premium,
+    TFM
   );
+
+  const oracleNonce = await TFM.oracleNonce();
+
+  let staticPartySignature = "0x";
+
+  // if (!strategy.transferable) {
+  //   staticPartySignature = await signTransfer(staticParty);
+  // }
+
+  const transferParameters = [
+    strategyId,
+    recipient.address,
+    premium,
+    oracleSignature,
+    senderSignature,
+    recipientSignature,
+    staticPartySignature,
+    recipientCollateralRequirement,
+    oracleNonce,
+    senderFee,
+    recipientFee,
+    alphaTransfer,
+  ];
+
+  const transferTransaction = await TFM.transfer(transferParameters);
 
   return transferTransaction;
 };

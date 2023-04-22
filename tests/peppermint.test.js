@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 const { freshDeployment } = require("../helpers/fixtures.js");
-const { spearmint } = require("../helpers/actions/spearmint.js");
+const { peppermint } = require("../helpers/actions/peppermint.js");
 const {
   checkAllocations,
   checkReserves,
@@ -10,7 +10,7 @@ const {
 } = require("../helpers/assertions.js");
 const { STRATEGY, MINT } = require("./PARAMETERS.js");
 
-describe("SPEARMINT", () => {
+describe("PEPPERMINT", () => {
   beforeEach(async () => {
     ({
       TFM: this.TFM,
@@ -24,6 +24,7 @@ describe("SPEARMINT", () => {
       owner: this.owner,
       alice: this.alice,
       bob: this.bob,
+      carol: this.pepperminter,
     } = await loadFixture(freshDeployment));
   });
 
@@ -31,10 +32,11 @@ describe("SPEARMINT", () => {
     beforeEach(async () => {
       ({
         strategyId: this.strategyId,
-        spearmintTransaction: this.spearmintTransaction,
-      } = await spearmint(
+        peppermintTransaction: this.peppermintTransaction,
+      } = await peppermint(
         this.alice,
         this.bob,
+        this.pepperminter,
         this.TFM,
         this.FundManager,
         this.oracle,
@@ -86,7 +88,7 @@ describe("SPEARMINT", () => {
       );
     });
 
-    it("Correct unallocated collateral balances post-mint", async () => {
+    it("Correct unallocated collateral balances post-peppermint", async () => {
       await checkReserves(
         this.FundManager,
         this.Basis,
@@ -104,64 +106,22 @@ describe("SPEARMINT", () => {
           MINT.alphaFee.add(MINT.premium).mul(-1),
           MINT.omegaFee.sub(MINT.premium).mul(-1),
         ],
-        this.spearmintTransaction
+        this.peppermintTransaction
       );
     });
 
     it("Fees sent to treasury", async () => {
-      await expect(this.spearmintTransaction).to.changeTokenBalance(
+      await expect(this.peppermintTransaction).to.changeTokenBalance(
         this.Basis,
         this.treasury,
         MINT.alphaFee.add(MINT.omegaFee)
       );
     });
 
-    it("Emits 'Spearmint' event with correct parameters", async () => {
-      await expect(this.spearmintTransaction)
-        .to.emit(this.TFM, "Spearmint")
+    it("Emits 'Peppermint' event with correct parameters", async () => {
+      await expect(this.peppermintTransaction)
+        .to.emit(this.TFM, "Peppermint")
         .withArgs(this.strategyId);
     });
   });
-
-  // describe("Reversions", () => {
-  //   beforeEach(async () => {
-  //     ({ mintTerms: this.mintTerms, oracleSignature } = await getMintTerms(
-  //       this.TFM,
-  //       this.oracle,
-  //       STRATEGY.expiry,
-  //       MINT.alphaCollateralRequirement,
-  //       MINT.omegaCollateralRequirement,
-  //       MINT.alphaFee,
-  //       MINT.omegaFee,
-  //       this.BRA,
-  //       this.KET,
-  //       this.Basis,
-  //       STRATEGY.amplitude,
-  //       STRATEGY.phase
-  //     ));
-
-  //     // this.mintParameters = await signmint(
-  //     //   this.alice,
-  //     //   this.bob,
-  //     //   oracleSignature,
-  //     //   MINT.premium,
-  //     //   STRATEGY.transferable,
-  //     //   this.TFM
-  //     // );
-  //   });
-
-  //   // TODO:
-  //   // - Insufficient collateral for all requirements, fees, preimium
-  //   // - Incorrect signatures terms + approvals
-  //   // - oracle nonce incorrect -> check this in another folder - check this method reverts
-  //   // - mint nonce incorrect - increments mint nonce
-
-  //   // it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
-  //   //   // this.FundManager.withdraw();
-  //   // });
-
-  //   // it("Reverts if omega has insufficient unallocated collateral to pay fee", async () => {
-  //   //   // asd
-  //   // });
-  // });
 });

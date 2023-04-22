@@ -28,7 +28,7 @@ module.exports = {
     apiKey: "PVWC1XQW7X1RVBPDEVYGP2DGSZWZTT4WMT",
   },
   gasReporter: {
-    enabled: true,
+    // enabled: true,
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
     currency: "USD",
   },

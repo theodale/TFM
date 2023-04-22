@@ -3,40 +3,39 @@
 pragma solidity =0.8.14;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-// import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+import "../interfaces/IWallet.sol";
 import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
 /// @notice Contains signature-validating functionality utilised by the TFM
 library Validator {
-    function validateSpearmint(
-        MintTerms calldata _terms,
-        address _oracle,
+    function approveSpearmint(
         SpearmintParameters calldata _parameters,
+        address _oracle,
         uint256 _mintNonce
     ) external view {
-        bytes memory termsMessage = abi.encodePacked(
-            _terms.expiry,
-            _terms.alphaCollateralRequirement,
-            _terms.omegaCollateralRequirement,
-            _terms.alphaFee,
-            _terms.omegaFee,
-            _terms.oracleNonce,
-            _terms.bra,
-            _terms.ket,
-            _terms.basis,
-            _terms.amplitude,
-            _terms.phase
+        bytes memory oracleMessage = abi.encodePacked(
+            _parameters.expiry,
+            _parameters.alphaCollateralRequirement,
+            _parameters.omegaCollateralRequirement,
+            _parameters.alphaFee,
+            _parameters.omegaFee,
+            _parameters.oracleNonce,
+            _parameters.bra,
+            _parameters.ket,
+            _parameters.basis,
+            _parameters.amplitude,
+            _parameters.phase
         );
 
         require(
-            _isValidSignature(termsMessage, _parameters.oracleSignature, _oracle),
+            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
             "SPEARMINT: Invalid Trufin oracle signature"
         );
 
-        bytes memory parametersMessage = abi.encodePacked(
+        bytes memory spearminterMessage = abi.encodePacked(
             _parameters.oracleSignature,
             _parameters.alpha,
             _parameters.omega,
@@ -45,7 +44,7 @@ library Validator {
             _mintNonce
         );
 
-        bytes32 hash = _generateMessageHash(parametersMessage);
+        bytes32 hash = _generateMessageHash(spearminterMessage);
 
         require(
             _isValidSignature(hash, _parameters.alphaSignature, _parameters.alpha),
@@ -58,6 +57,122 @@ library Validator {
                 "SPEARMINT: Omega signature invalid"
             );
         }
+    }
+
+    function approvePeppermint(ApprovePeppermintParameters calldata _parameters) external view {
+        bytes memory message = abi.encodePacked(
+            _parameters.expiry,
+            _parameters.alphaCollateralRequirement,
+            _parameters.omegaCollateralRequirement,
+            _parameters.alphaFee,
+            _parameters.omegaFee,
+            _parameters.oracleNonce,
+            _parameters.bra,
+            _parameters.ket,
+            _parameters.basis,
+            _parameters.amplitude,
+            _parameters.phase
+        );
+
+        require(
+            _isValidSignature(message, _parameters.oracleSignature, _parameters.oracle),
+            "SPEARMINT: Invalid Trufin oracle signature"
+        );
+    }
+
+    //     struct TransferParameters {
+    //     uint256 strategyId;
+    //     address recipient;
+    //     // If premium is +ve/-ve => sender/recipient pays recipient/sender
+    //     int256 premium;
+    //     // Links to specific set of transfer terms => this indicates which party is transferring their position
+    //     bytes oracleSignature;
+    //     bytes senderSignature;
+    //     bytes recipientSignature;
+    //     // Not used if the strategy is transferable
+    //     bytes staticPartySignature;
+    //     uint256 recipientCollateralRequirement;
+    //     uint256 oracleNonce;
+    //     uint256 senderFee;
+    //     uint256 recipientFee;
+    //     bool alphaTransfer;
+    // }
+
+    function approveTransfer(
+        TransferParameters calldata _parameters,
+        Strategy storage _strategy,
+        address _sender,
+        address _oracle
+    ) external view {
+        bytes memory transfererMessage = abi.encodePacked(
+            _parameters.oracleSignature,
+            _parameters.strategyId,
+            _parameters.recipient,
+            _parameters.premium,
+            _strategy.actionNonce
+        );
+
+        bytes32 hash = _generateMessageHash(transfererMessage);
+
+        require(_isValidSignature(hash, _parameters.senderSignature, _sender), "TRANSFER: Sender signature invalid");
+        require(
+            _isValidSignature(hash, _parameters.recipientSignature, _parameters.recipient),
+            "TRANSFER: Recipient signature invalid"
+        );
+
+        // Check non-transferring party's signature if strategy is not transferable
+        if (!_strategy.transferable) {
+            address staticParty = _parameters.alphaTransfer ? _strategy.omega : _strategy.alpha;
+
+            require(
+                _isValidSignature(hash, _parameters.staticPartySignature, staticParty),
+                "TRANSFER: Static party signature invalid"
+            );
+        }
+
+        bytes memory oracleMessage = abi.encodePacked(
+            abi.encodePacked(
+                _strategy.expiry,
+                _strategy.bra,
+                _strategy.ket,
+                _strategy.basis,
+                _strategy.amplitude,
+                _strategy.phase,
+                _parameters.senderFee,
+                _parameters.recipientFee,
+                _parameters.recipientCollateralRequirement,
+                _parameters.alphaTransfer
+            ),
+            _parameters.oracleNonce
+        );
+
+        require(
+            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+            "TRANSFER: Invalid Trufin oracle signature"
+        );
+    }
+
+    // Transfers ERC20 tokens from a user's wallet to a recipient address
+    function _transferFromWallet(
+        mapping(address => IWallet) storage _wallets,
+        address _token,
+        address _sender,
+        address _recipient,
+        uint256 _amount
+    ) internal {
+        _wallets[_sender].transferERC20(_token, address(_wallets[_recipient]), _amount);
+    }
+
+    function _transferFromWalletTwice(
+        mapping(address => IWallet) storage _wallets,
+        address _sender,
+        address _basis,
+        address _recipientOne,
+        uint256 _amountOne,
+        address _recipientTwo,
+        uint256 _amountTwo
+    ) internal {
+        _wallets[_sender].transferERC20Twice(_basis, _recipientOne, _amountOne, _recipientTwo, _amountTwo);
     }
 
     // Hashes a message and returns it in EIP-191 format
@@ -82,262 +197,4 @@ library Validator {
 
         return _isValidSignature(messageHash, _signature, _signer);
     }
-
-    // function ensureTransferApprovals(
-    //     TransferParameters calldata _parameters,
-    //     Strategy storage _strategy,
-    //     address _sender,
-    //     bool alphaTransfer
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         _parameters.oracleSignature,
-    //         _parameters.strategyId,
-    //         _parameters.recipient,
-    //         _parameters.premium,
-    //         _strategy.actionNonce
-    //     );
-    //     bytes32 hash = _generateMessageHash(message);
-    //     require(_isValidSignature(hash, _parameters.senderSignature, _sender), "TRANSFER: Sender signature invalid");
-    //     require(
-    //         _isValidSignature(hash, _parameters.recipientSignature, _parameters.recipient),
-    //         "TRANSFER: Recipient signature invalid"
-    //     );
-    //     // Check non-transferring party's signature if strategy is not transferable
-    //     if (!_strategy.transferable) {
-    //         address staticParty = alphaTransfer ? _strategy.omega : _strategy.alpha;
-    //         require(
-    //             _isValidSignature(hash, _parameters.staticPartySignature, staticParty),
-    //             "TRANSFER: Static party signature invalid"
-    //         );
-    //     }
-    // }
-    // function validateTransferTerms(
-    //     TransferTerms calldata _terms,
-    //     Strategy storage _strategy,
-    //     address _oracle,
-    //     bytes memory _oracleSignature
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         _strategy.expiry,
-    //         _strategy.bra,
-    //         _strategy.ket,
-    //         _strategy.basis,
-    //         _strategy.amplitude,
-    //         _strategy.phase,
-    //         _terms.senderFee,
-    //         _terms.recipientFee,
-    //         _terms.recipientCollateralRequirement,
-    //         _terms.alphaTransfer,
-    //         _terms.oracleNonce
-    //     );
-    //     require(_isValidSignature(message, _oracleSignature, _oracle), "TRANSFER: Invalid Trufin oracle signature");
-    // }
-    // // COMBINATION
-    // function checkCombinationApprovals(
-    //     uint256 _strategyOneId,
-    //     uint256 _strategyTwoId,
-    //     Strategy storage _strategyOne,
-    //     Strategy storage _strategyTwo,
-    //     bytes calldata _strategyOneAlphaSignature,
-    //     bytes calldata _strategyOneOmegaSignature,
-    //     bytes calldata _oracleSignature
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         _strategyOneId,
-    //         _strategyTwoId,
-    //         _strategyOne.actionNonce,
-    //         _strategyTwo.actionNonce,
-    //         _oracleSignature
-    //     );
-    //     bytes32 hash = _generateMessageHash(message);
-    //     require(
-    //         _isValidSignature(hash, _strategyOneAlphaSignature, _strategyOne.alpha),
-    //         "COMBINATION: Invalid strategy two alpha signature"
-    //     );
-    //     require(
-    //         _isValidSignature(hash, _strategyOneOmegaSignature, _strategyOne.omega),
-    //         "COMBINATION: Invalid strategy one omega signature"
-    //     );
-    // }
-    // function validateCombinationTerms(
-    //     CombinationTerms calldata _terms,
-    //     Strategy storage _strategyOne,
-    //     Strategy storage _strategyTwo,
-    //     address _oracle,
-    //     bytes calldata _oracleSignature
-    // ) external view {
-    //     // Ensure alignment specified by terms is accurate
-    //     if (_terms.aligned) {
-    //         require(
-    //             _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
-    //             "COMBINATION: Strategies are not aligned"
-    //         );
-    //     } else {
-    //         require(
-    //             _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
-    //             "COMBINATION: Strategies are not aligned"
-    //         );
-    //     }
-    //     // Investigate security risk with two phases in message => should be ok if not next to each other?
-    //     bytes memory message = abi.encodePacked(
-    //         abi.encodePacked(
-    //             _strategyOne.expiry,
-    //             _strategyOne.bra,
-    //             _strategyOne.ket,
-    //             _strategyOne.basis,
-    //             _strategyOne.amplitude,
-    //             _strategyOne.phase,
-    //             _strategyTwo.expiry,
-    //             _strategyTwo.bra,
-    //             _strategyTwo.ket,
-    //             _strategyTwo.basis
-    //         ),
-    //         abi.encodePacked(
-    //             _strategyTwo.amplitude,
-    //             _strategyTwo.phase,
-    //             _terms.strategyOneAlphaFee,
-    //             _terms.strategyOneOmegaFee,
-    //             _terms.resultingAlphaCollateralRequirement,
-    //             _terms.resultingOmegaCollateralRequirement,
-    //             _terms.resultingPhase
-    //         ),
-    //         abi.encodePacked(_terms.resultingAmplitude, _terms.oracleNonce, _terms.aligned)
-    //     );
-    //     require(_isValidSignature(message, _oracleSignature, _oracle), "COMBINATION: Invalid Trufin oracle signature");
-    // }
-    // // NOVATE
-    // function validateNovationTerms(
-    //     NovationTerms calldata _terms,
-    //     Strategy storage _strategyOne,
-    //     Strategy storage _strategyTwo,
-    //     address _oracle,
-    //     bytes calldata _oracleSignature
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         abi.encodePacked(
-    //             _strategyOne.expiry,
-    //             _strategyOne.bra,
-    //             _strategyOne.ket,
-    //             _strategyOne.basis,
-    //             _strategyOne.amplitude,
-    //             _strategyOne.phase,
-    //             _strategyTwo.expiry,
-    //             _strategyTwo.bra,
-    //             _strategyTwo.ket,
-    //             _strategyTwo.basis
-    //         ),
-    //         abi.encodePacked(
-    //             _strategyTwo.amplitude,
-    //             _strategyTwo.phase,
-    //             _terms.strategyOneResultingAlphaCollateralRequirement,
-    //             _terms.strategyOneResultingOmegaCollateralRequirement,
-    //             _terms.strategyTwoResultingAlphaCollateralRequirement,
-    //             _terms.strategyTwoResultingOmegaCollateralRequirement
-    //         ),
-    //         abi.encodePacked(
-    //             _terms.strategyOneResultingAmplitude,
-    //             _terms.strategyTwoResultingAmplitude,
-    //             _terms.fee,
-    //             _terms.oracleNonce
-    //         )
-    //     );
-    //     require(_isValidSignature(message, _oracleSignature, _oracle), "NOVATION: Invalid Trufin oracle signature");
-    // }
-    // function checkNovationApprovals(
-    //     NovationParameters calldata _parameters,
-    //     Strategy storage _strategyOne,
-    //     Strategy storage _strategyTwo
-    // ) external view {
-    //     // Do we need action nonce here?
-    //     bytes memory message = abi.encodePacked(
-    //         _parameters.strategyOneId,
-    //         _parameters.strategyTwoId,
-    //         _strategyOne.actionNonce,
-    //         _strategyTwo.actionNonce,
-    //         _parameters.oracleSignature
-    //     );
-    //     bytes32 hash = _generateMessageHash(message);
-    //     require(
-    //         _isValidSignature(hash, _parameters.middlePartySignature, _strategyOne.omega),
-    //         "NOVATION: Invalid strategy two alpha signature"
-    //     );
-    //     if (!_strategyOne.transferable) {
-    //         require(
-    //             _isValidSignature(hash, _parameters.strategyOneNonMiddlePartySignature, _strategyOne.alpha),
-    //             "NOVATION: Invalid strategy one omega signature"
-    //         );
-    //     }
-    //     if (!_strategyTwo.transferable) {
-    //         require(
-    //             _isValidSignature(hash, _parameters.strategyTwoNonMiddlePartySignature, _strategyTwo.omega),
-    //             "NOVATION: Invalid strategy one omega signature"
-    //         );
-    //     }
-    // }
-    // // EXERCISE
-    // function validateExerciseTerms(
-    //     ExerciseTerms calldata _terms,
-    //     Strategy storage _strategy,
-    //     address _oracle,
-    //     bytes calldata _oracleSignature
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         _strategy.expiry,
-    //         _strategy.bra,
-    //         _strategy.ket,
-    //         _strategy.basis,
-    //         _strategy.amplitude,
-    //         _strategy.phase,
-    //         _terms.oracleNonce,
-    //         _terms.payout
-    //     );
-    //     require(_isValidSignature(message, _oracleSignature, _oracle), "EXERCISE: Invalid Trufin oracle signature");
-    // }
-    // // LIQUIDATE
-    // function validateLiquidationTerms(
-    //     LiquidationTerms calldata _terms,
-    //     Strategy storage _strategy,
-    //     bytes calldata _oracleSignature,
-    //     address _oracle,
-    //     uint256 _initialAlphaAllocation,
-    //     uint256 _initialOmegaAllocation
-    // ) external view {
-    //     bytes memory message = abi.encodePacked(
-    //         abi.encodePacked(
-    //             _strategy.expiry,
-    //             _strategy.bra,
-    //             _strategy.ket,
-    //             _strategy.basis,
-    //             _strategy.amplitude,
-    //             _strategy.phase,
-    //             _terms.oracleNonce,
-    //             _terms.compensation,
-    //             _terms.alphaPenalisation
-    //         ),
-    //         abi.encodePacked(
-    //             _terms.omegaPenalisation,
-    //             _terms.postLiquidationAmplitude,
-    //             _initialAlphaAllocation,
-    //             _initialOmegaAllocation
-    //         )
-    //     );
-    //     require(_isValidSignature(message, _oracleSignature, _oracle), "LIQUIDATION: Invalid Trufin oracle signature");
-    // }
-    // // *** UPDATE NONCE ***
-    // function validateOracleNonceUpdate(
-    //     uint256 _oracleNonce,
-    //     bytes calldata _oracleSignature,
-    //     address _oracle
-    // ) external view {
-    //     bytes memory encoding = abi.encodePacked(_oracleNonce);
-    //     require(
-    //         _isValidSignature(encoding, _oracleSignature, _oracle),
-    //         "ORACLE NONCE UPDATE: Invalid Trufin oracle signature"
-    //     );
-    // }
 }
-
-// TO DO:
-// - Ensure no signature replay across actions - do we need enum?
-// - Check if use of encodePacked is safe
-// - Neaten and minify used of ECDSA -> make one function that prefixes and one that doesn't -> maybe also make a straight prefix function

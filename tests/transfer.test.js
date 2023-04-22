@@ -5,17 +5,21 @@ const { freshDeployment } = require("../helpers/fixtures.js");
 const { spearmint } = require("../helpers/actions/spearmint.js");
 const { transfer } = require("../helpers/actions/transfer.js");
 const {
-  checkCollateralAllocations,
-  checkUnallocatedCollateralBalances,
-  checkPoolBalanceChanges,
+  checkAllocations,
+  checkReserves,
+  checkWalletBalanceChanges,
 } = require("../helpers/assertions.js");
-const { STRATEGY, SPEARMINT, TRANSFER } = require("./test-parameters.js");
+const { STRATEGY, MINT, TRANSFER } = require("./PARAMETERS.js");
+
+// TODO:
+// - check omega transfer as successful call only does alpha transfer
+// - cannot transfer a non-transferable strategy with a blank static party sig
 
 describe("TRANSFER", () => {
   beforeEach(async () => {
     ({
       TFM: this.TFM,
-      CollateralManager: this.CollateralManager,
+      FundManager: this.FundManager,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -29,7 +33,6 @@ describe("TRANSFER", () => {
     } = await loadFixture(freshDeployment));
   });
 
-  // This block describes an alpha transfer => omega transfer is tested later
   describe("Successful Call", () => {
     beforeEach(async () => {
       ({
@@ -39,25 +42,25 @@ describe("TRANSFER", () => {
         this.alice,
         this.bob,
         this.TFM,
-        this.CollateralManager,
+        this.FundManager,
         this.oracle,
         this.BRA,
         this.KET,
         this.Basis,
-        SPEARMINT.premium,
+        MINT.premium,
         STRATEGY.transferable,
         STRATEGY.expiry,
         STRATEGY.amplitude,
         STRATEGY.phase,
-        SPEARMINT.alphaCollateralRequirement,
-        SPEARMINT.omegaCollateralRequirement,
-        SPEARMINT.alphaFee,
-        SPEARMINT.omegaFee
+        MINT.alphaCollateralRequirement,
+        MINT.omegaCollateralRequirement,
+        MINT.alphaFee,
+        MINT.omegaFee
       ));
 
       this.transferTransaction = await transfer(
         this.TFM,
-        this.CollateralManager,
+        this.FundManager,
         this.Basis,
         this.strategyId,
         this.oracle,
@@ -84,21 +87,30 @@ describe("TRANSFER", () => {
     });
 
     it("Correct strategy collateral allocations post-transfer", async () => {
-      await checkCollateralAllocations(
-        this.CollateralManager,
+      await checkAllocations(
+        this.FundManager,
         this.strategyId,
         [this.alice, this.bob, this.carol],
         [
-          0,
-          TRANSFER.recipientCollateralRequirement,
-          SPEARMINT.omegaCollateralRequirement,
+          {
+            alphaBalance: 0,
+            omegaBalance: 0,
+          },
+          {
+            alphaBalance: 0,
+            omegaBalance: MINT.omegaCollateralRequirement,
+          },
+          {
+            alphaBalance: TRANSFER.recipientCollateralRequirement,
+            omegaBalance: 0,
+          },
         ]
       );
     });
 
     it("Premium exchanged between and fees taken from personal pools", async () => {
-      await checkPoolBalanceChanges(
-        this.CollateralManager,
+      await checkWalletBalanceChanges(
+        this.FundManager,
         this.Basis,
         [this.alice, this.carol],
         [
@@ -110,16 +122,12 @@ describe("TRANSFER", () => {
     });
 
     it("Correct unallocated collateral balances post-transfer", async () => {
-      await checkUnallocatedCollateralBalances(
-        this.CollateralManager,
+      await checkReserves(
+        this.FundManager,
         this.Basis,
         [this.alice, this.carol],
-        [SPEARMINT.alphaCollateralRequirement, TRANSFER.premium]
+        [MINT.alphaCollateralRequirement, TRANSFER.premium]
       );
     });
-
-    // TODO:
-    // - check omega transfer
-    // - cannot transfer a non-transferable strategy with a blank static party sig
   });
 });

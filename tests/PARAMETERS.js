@@ -9,7 +9,7 @@ const STRATEGY = {
   transferable: true,
 };
 
-const SPEARMINT = {
+const MINT = {
   alphaCollateralRequirement: ethers.utils.parseEther("1"),
   omegaCollateralRequirement: ethers.utils.parseEther("1"),
   alphaFee: ethers.utils.parseEther("0.01"),
@@ -48,7 +48,7 @@ const LIQUIDATION = {
 
 module.exports = {
   STRATEGY,
-  SPEARMINT,
+  MINT,
   TRANSFER,
   COMBINATION,
   EXERCISE,

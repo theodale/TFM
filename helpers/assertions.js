@@ -2,30 +2,30 @@ const { expect } = require("chai");
 
 // This file contains functions that can be used to check conditions during tests
 
-const checkCollateralAllocations = async (
+const checkAllocations = async (
   collateralManager,
   strategyId,
   users,
   allocations
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const allocatedCollateral = await collateralManager.allocations(
+    const collateralBalance = await collateralManager.collateralBalances(
       users[i].address,
       strategyId
     );
 
-    expect(allocatedCollateral).to.equal(allocations[i]);
+    expect(collateralBalance.alphaBalance).to.equal(
+      allocations[i].alphaBalance
+    );
+    expect(collateralBalance.omegaBalance).to.equal(
+      allocations[i].omegaBalance
+    );
   }
 };
 
-const checkUnallocatedCollateralBalances = async (
-  collateralManager,
-  basis,
-  users,
-  balances
-) => {
+const checkReserves = async (collateralManager, basis, users, balances) => {
   for (let i = 0; i < users.length; i++) {
-    const unallocatedCollateral = await collateralManager.deposits(
+    const unallocatedCollateral = await collateralManager.reserves(
       users[i].address,
       basis.address
     );
@@ -34,7 +34,7 @@ const checkUnallocatedCollateralBalances = async (
   }
 };
 
-const checkPoolBalanceChanges = async (
+const checkWalletBalanceChanges = async (
   CollateralManager,
   Basis,
   users,
@@ -42,20 +42,18 @@ const checkPoolBalanceChanges = async (
   transaction
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const personalPoolAddress = await CollateralManager.wallets(
-      users[i].address
-    );
+    const walletAddress = await CollateralManager.wallets(users[i].address);
 
     await expect(transaction).to.changeTokenBalance(
       Basis,
-      personalPoolAddress,
+      walletAddress,
       changes[i]
     );
   }
 };
 
 module.exports = {
-  checkCollateralAllocations,
-  checkUnallocatedCollateralBalances,
-  checkPoolBalanceChanges,
+  checkAllocations,
+  checkReserves,
+  checkWalletBalanceChanges,
 };

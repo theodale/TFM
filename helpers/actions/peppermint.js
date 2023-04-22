@@ -1,10 +1,9 @@
 const { getOracleMintSignature } = require("../oracle/mint.js");
-const { signSpearmint } = require("../signing/spearmint.js");
-const { mintAndDeposit } = require("../utils.js");
 
-const spearmint = async (
+const peppermint = async (
   alpha,
   omega,
+  pepperminter,
   TFM,
   FundManager,
   oracle,
@@ -44,10 +43,34 @@ const spearmint = async (
     alphaDeposit = alphaDeposit.sub(premium);
   }
 
-  await mintAndDeposit(alpha, alphaDeposit, basis, FundManager);
-  await mintAndDeposit(omega, omegaDeposit, basis, FundManager);
+  const alphaDepositId = await FundManager.lockedDepositCounters(
+    alpha.address,
+    pepperminter.address,
+    basis.address
+  );
+  const omegaDepositId = await FundManager.lockedDepositCounters(
+    omega.address,
+    pepperminter.address,
+    basis.address
+  );
 
-  // SPEARMINT
+  await basis.mint(alpha.address, alphaDeposit);
+  await basis.mint(omega.address, omegaDeposit);
+  await basis.connect(alpha).approve(FundManager.address, alphaDeposit);
+  await basis.connect(omega).approve(FundManager.address, omegaDeposit);
+
+  await FundManager.connect(alpha).depositForPeppermint(
+    pepperminter.address,
+    basis.address,
+    alphaDeposit,
+    360000000000
+  );
+  await FundManager.connect(omega).depositForPeppermint(
+    pepperminter.address,
+    basis.address,
+    omegaDeposit,
+    360000000000
+  );
 
   const oracleSignature = await getOracleMintSignature(
     TFM,
@@ -64,18 +87,9 @@ const spearmint = async (
     phase
   );
 
-  const { alphaSignature, omegaSignature } = await signSpearmint(
-    alpha,
-    omega,
-    oracleSignature,
-    premium,
-    transferable,
-    TFM
-  );
-
   const oracleNonce = await TFM.oracleNonce();
 
-  const spearmintParameters = {
+  const peppermintParameters = {
     expiry,
     bra: bra.address,
     ket: ket.address,
@@ -92,17 +106,19 @@ const spearmint = async (
     omega: omega.address,
     premium,
     transferable,
-    alphaSignature,
-    omegaSignature,
+    alphaDepositId,
+    omegaDepositId,
   };
 
   const strategyId = await TFM.strategyCounter();
 
-  const spearmintTransaction = await TFM.spearmint(spearmintParameters);
+  const peppermintTransaction = await TFM.connect(pepperminter).peppermint(
+    peppermintParameters
+  );
 
-  return { strategyId, spearmintTransaction };
+  return { strategyId, peppermintTransaction };
 };
 
 module.exports = {
-  spearmint,
+  peppermint,
 };

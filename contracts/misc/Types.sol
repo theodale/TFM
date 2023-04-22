@@ -2,7 +2,7 @@
 
 pragma solidity =0.8.14;
 
-// *** STATE ***
+// *** PROTOCOL STATE REPRESENTATIONS ***
 
 struct Strategy {
     bool transferable;
@@ -10,8 +10,8 @@ struct Strategy {
     address ket;
     address basis;
     // These can be inferred from allocations
-    // address alpha;
-    // address omega;
+    address alpha;
+    address omega;
     uint48 expiry;
     int256 amplitude;
     int256[2][] phase;
@@ -19,31 +19,32 @@ struct Strategy {
     uint256 actionNonce;
 }
 
-struct PeppermintDeposit {
+struct CollateralBalance {
+    uint256 alphaBalance;
+    uint256 omegaBalance;
+}
+
+// Represents escrowed deposits used for peppermints
+struct LockedDeposit {
     uint256 amount;
     uint256 unlockTime;
 }
 
-// *** ACTIONS ***
+// *** TFM ACTION PARAMETERS ***
 
-// MINT
-
-struct MintTerms {
+struct SpearmintParameters {
     uint48 expiry;
-    uint256 alphaCollateralRequirement;
-    uint256 omegaCollateralRequirement;
-    uint256 alphaFee;
-    uint256 omegaFee;
-    uint256 oracleNonce;
     address bra;
     address ket;
     address basis;
     int256 amplitude;
     int256[2][] phase;
-}
-
-struct SpearmintParameters {
     bytes oracleSignature;
+    uint256 oracleNonce;
+    uint256 alphaCollateralRequirement;
+    uint256 omegaCollateralRequirement;
+    uint256 alphaFee;
+    uint256 omegaFee;
     address alpha;
     address omega;
     int256 premium;
@@ -53,23 +54,24 @@ struct SpearmintParameters {
 }
 
 struct PeppermintParameters {
+    uint48 expiry;
+    address bra;
+    address ket;
+    address basis;
+    int256 amplitude;
+    int256[2][] phase;
     bytes oracleSignature;
+    uint256 oracleNonce;
+    uint256 alphaCollateralRequirement;
+    uint256 omegaCollateralRequirement;
+    uint256 alphaFee;
+    uint256 omegaFee;
     address alpha;
     address omega;
     int256 premium;
     bool transferable;
     uint256 alphaDepositId;
     uint256 omegaDepositId;
-}
-
-// TRANSFER
-
-struct TransferTerms {
-    uint256 recipientCollateralRequirement;
-    uint256 oracleNonce;
-    uint256 senderFee;
-    uint256 recipientFee;
-    bool alphaTransfer;
 }
 
 struct TransferParameters {
@@ -83,6 +85,11 @@ struct TransferParameters {
     bytes recipientSignature;
     // Not used if the strategy is transferable
     bytes staticPartySignature;
+    uint256 recipientCollateralRequirement;
+    uint256 oracleNonce;
+    uint256 senderFee;
+    uint256 recipientFee;
+    bool alphaTransfer;
 }
 
 // COMBINE
@@ -164,18 +171,61 @@ struct LiquidationParameters {
     bytes oracleSignature;
 }
 
-// *** LOCAL PARAMETERS ***
+// *** PROTOCOL-INTERNAL PARAMETERS ***
 
-// Used to avoid stack depth issues
-
-struct ExecuteSpearmintParameters {
+struct ExecutePeppermintParameters {
     uint256 strategyId;
     address alpha;
     address omega;
     address basis;
+    int256 premium;
     uint256 alphaCollateralRequirement;
     uint256 omegaCollateralRequirement;
     uint256 alphaFee;
     uint256 omegaFee;
+    address pepperminter;
+    uint256 alphaDepositId;
+    uint256 omegaDepositId;
+}
+
+struct ExecuteTransferParameters {
+    uint256 strategyId;
+    address sender;
+    address recipient;
+    address basis;
+    uint256 recipientCollateralRequirement;
+    uint256 senderFee;
+    uint256 recipientFee;
     int256 premium;
+    bool alphaTransfer;
+}
+
+struct ApprovePeppermintParameters {
+    uint48 expiry;
+    uint256 alphaCollateralRequirement;
+    uint256 omegaCollateralRequirement;
+    uint256 alphaFee;
+    uint256 omegaFee;
+    uint256 oracleNonce;
+    address bra;
+    address ket;
+    address basis;
+    int256 amplitude;
+    int256[2][] phase;
+    address oracle;
+    bytes oracleSignature;
+}
+
+struct SharedMintLogicParameters {
+    uint256 strategyId;
+    address alpha;
+    address omega;
+    address basis;
+    int256 premium;
+    uint256 alphaCollateralRequirement;
+    uint256 omegaCollateralRequirement;
+    uint256 alphaAvailable;
+    uint256 omegaAvailable;
+    uint256 alphaFee;
+    uint256 omegaFee;
 }

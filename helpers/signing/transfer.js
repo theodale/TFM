@@ -1,9 +1,8 @@
 const { ethers } = require("hardhat");
 
 const signTransfer = async (
-  sender,
+  signer,
   recipient,
-  staticParty,
   oracleSignature,
   strategyId,
   premium,
@@ -22,27 +21,9 @@ const signTransfer = async (
     ]
   );
 
-  const senderSignature = await sender.signMessage(
-    ethers.utils.arrayify(message)
-  );
-  const recipientSignature = await recipient.signMessage(
-    ethers.utils.arrayify(message)
-  );
-  const staticPartySignature = await staticParty.signMessage(
-    ethers.utils.arrayify(message)
-  );
+  const signature = await signer.signMessage(ethers.utils.arrayify(message));
 
-  const transferParameters = {
-    strategyId,
-    recipient: recipient.address,
-    premium,
-    oracleSignature,
-    senderSignature,
-    recipientSignature,
-    staticPartySignature,
-  };
-
-  return transferParameters;
+  return signature;
 };
 
 module.exports = {

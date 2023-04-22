@@ -12,12 +12,10 @@ async function freshDeployment() {
   const Wallet = await ethers.getContractFactory("Wallet");
   const WalletImplementation = await Wallet.deploy();
 
-  // Deploy CollateralManager
-  const CollateralManagerFactory = await ethers.getContractFactory(
-    "CollateralManager"
-  );
-  const CollateralManager = await upgrades.deployProxy(
-    CollateralManagerFactory,
+  // Deploy FundManager
+  const FundManagerFactory = await ethers.getContractFactory("FundManager");
+  const FundManager = await upgrades.deployProxy(
+    FundManagerFactory,
     [treasury.address, owner.address, WalletImplementation.address],
     {
       kind: "uups",
@@ -33,11 +31,11 @@ async function freshDeployment() {
   const TFM = await upgrades.deployProxy(
     TFMFactory,
     [
-      CollateralManager.address,
       owner.address,
       liquidator.address,
       oracle.address,
       3600,
+      FundManager.address,
     ],
     {
       unsafeAllowLinkedLibraries: true,
@@ -45,7 +43,8 @@ async function freshDeployment() {
     }
   );
 
-  await CollateralManager.setTFM(TFM.address);
+  // Link manager to TFM
+  await FundManager.setTFM(TFM.address);
 
   const MockERC20Factory = await ethers.getContractFactory("MockERC20");
 
@@ -56,7 +55,7 @@ async function freshDeployment() {
 
   return {
     TFM,
-    CollateralManager,
+    FundManager,
     BRA,
     KET,
     Basis,

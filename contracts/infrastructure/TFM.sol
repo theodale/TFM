@@ -4,10 +4,13 @@ pragma solidity =0.8.14;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../libraries/Validator.sol";
-import "../interfaces/ICollateralManager.sol";
 import "../interfaces/ITFM.sol";
+import "../interfaces/IFundManager.sol";
+import "../libraries/Validator.sol";
+import "../interfaces/IWallet.sol";
 import "../misc/Types.sol";
 
 import "hardhat/console.sol";
@@ -18,43 +21,43 @@ import "hardhat/console.sol";
 contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     // *** STATE VARIABLES ***
 
-    // Signs and validates data packages
-    address trufinOracle;
-
-    // Used to ensure oracle terms are up to date => updated periodically
+    /// @notice Current value of the TFM's oracle nonce.
     uint256 public oracleNonce;
+
+    /// @notice Stores ID of the next strategy to be minted.
+    uint256 public strategyCounter;
+
+    // The FundManager contract being utilised by this TFM
+    IFundManager fundManager;
+
+    // Signs and validates data packages
+    address oracle;
 
     // Time at which the oracle nonce was last updated
     uint256 latestOracleNonceUpdateTime;
 
-    // Contract will lock itself if the oracle nonce has not been updated in the last `lockTime` seconds
-    uint256 lockTime;
+    // Contract will lock itself if the oracle nonce has not been updated within this many seconds
+    uint256 selfLockPeriod;
+
+    // Address permitted to perform liquidations
+    address liquidator;
 
     // Prevents replay attacks using spearmint signatures
     // See getMintNonce() function for key/value meanings
-    mapping(address => mapping(address => uint256)) internal mintNonce;
+    mapping(address => mapping(address => uint256)) mintNonce;
 
     // Stores strategy states
     // Maps strategy ID => strategy
-    mapping(uint256 => Strategy) private strategies;
-
-    // Stores ID of the next strategy to be minted
-    uint256 public strategyCounter;
-
-    // Address permitted to perform liquidations
-    address internal liquidator;
-
-    // Performs collateral related logic for the TFM
-    ICollateralManager public collateralManager;
+    mapping(uint256 => Strategy) strategies;
 
     // *** INITIALIZER ***
 
     function initialize(
-        ICollateralManager _collateralManager,
         address _owner,
         address _liquidator,
-        address _trufinOracle,
-        uint256 _lockTime
+        address _oracle,
+        uint256 _selfLockPeriod,
+        IFundManager _fundManager
     ) external initializer {
         // Initialize inherited state
         __Ownable_init();
@@ -63,15 +66,15 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
         // Initialize contract state
         liquidator = _liquidator;
-        collateralManager = _collateralManager;
-        trufinOracle = _trufinOracle;
-        lockTime = _lockTime;
+        oracle = _oracle;
+        selfLockPeriod = _selfLockPeriod;
         latestOracleNonceUpdateTime = block.timestamp;
+        fundManager = _fundManager;
     }
 
     // *** GETTERS ***
 
-    // Returns the mint nonce of a pair of users
+    /// @notice Get the mint nonce of a pair of users.
     function getMintNonce(address partyOne, address partyTwo) public view returns (uint256) {
         if (partyOne < partyTwo) {
             return mintNonce[partyOne][partyTwo];
@@ -80,129 +83,143 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    // Read a strategy with a certain ID
+    /// @notice Get a strategy with a certain ID.
     function getStrategy(uint256 _strategyID) external view returns (Strategy memory) {
         return strategies[_strategyID];
     }
 
     // *** STRATEGY ACTIONS ***
 
-    // GAS:  400371
-
-    // Mint a new strategy between two parties
-    // Signatures verify parties approval
-    function spearmint(MintTerms calldata _terms, SpearmintParameters calldata _parameters) external {
-        Validator.validateSpearmint(
-            _terms,
-            trufinOracle,
-            _parameters,
-            getMintNonce(_parameters.alpha, _parameters.omega)
-        );
-
-        _checkOracleNonce(_terms.oracleNonce);
+    /// @notice Mint a new strategy between two parties.
+    /// @dev Signatures verify parties' willingness to mint the strategy.
+    function spearmint(SpearmintParameters calldata _parameters) external {
+        _checkOracleNonce(_parameters.oracleNonce);
 
         uint256 strategyId = _createStrategy(
-            _terms.expiry,
-            _terms.bra,
-            _terms.ket,
-            _terms.basis,
-            _terms.amplitude,
-            _terms.phase,
+            _parameters.alpha,
+            _parameters.omega,
+            _parameters.expiry,
+            _parameters.bra,
+            _parameters.ket,
+            _parameters.basis,
+            _parameters.amplitude,
+            _parameters.phase,
             _parameters.transferable
         );
 
-        ExecuteSpearmintParameters memory parameters = ExecuteSpearmintParameters(
+        Validator.approveSpearmint(_parameters, oracle, getMintNonce(_parameters.alpha, _parameters.omega));
+
+        fundManager.executeSpearmint(
             strategyId,
             _parameters.alpha,
             _parameters.omega,
-            _terms.basis,
-            _terms.alphaCollateralRequirement,
-            _terms.omegaCollateralRequirement,
-            _terms.alphaFee,
-            _terms.omegaFee,
-            _parameters.premium
+            _parameters.basis,
+            _parameters.premium,
+            _parameters.alphaCollateralRequirement,
+            _parameters.omegaCollateralRequirement,
+            _parameters.alphaFee,
+            _parameters.omegaFee
         );
 
-        // collateralManager.executeSpearmint(parameters);
-
-        // _incrementMintNonce(_parameters.alpha, _parameters.omega);
+        _incrementMintNonce(_parameters.alpha, _parameters.omega);
 
         emit Spearmint(strategyId);
     }
 
-    // // Approved third party mints a strategy for two users
-    // function peppermint(MintTerms calldata _terms, PeppermintParameters calldata _parameters) external {
-    //     Utils.validateMintTerms(_terms, _parameters.oracleSignature, trufinOracle);
+    /// @notice Approved calling third party mints a strategy for two users.
+    /// @dev Making deposits to a third party authorizes counterparty willingness to mint the strategy.
+    function peppermint(PeppermintParameters calldata _parameters) external {
+        ApprovePeppermintParameters memory approvePeppermintParameters = ApprovePeppermintParameters(
+            _parameters.expiry,
+            _parameters.alphaCollateralRequirement,
+            _parameters.omegaCollateralRequirement,
+            _parameters.alphaFee,
+            _parameters.omegaFee,
+            _parameters.oracleNonce,
+            _parameters.bra,
+            _parameters.ket,
+            _parameters.basis,
+            _parameters.amplitude,
+            _parameters.phase,
+            oracle,
+            _parameters.oracleSignature
+        );
 
-    //     _checkOracleNonce(_terms.oracleNonce);
+        Validator.approvePeppermint(approvePeppermintParameters);
 
-    //     uint256 strategyId = _createStrategy(
-    //         _terms.expiry,
-    //         _terms.bra,
-    //         _terms.ket,
-    //         _terms.basis,
-    //         _terms.amplitude,
-    //         _terms.phase,
-    //         _parameters.alpha,
-    //         _parameters.omega,
-    //         _parameters.transferable
-    //     );
+        _checkOracleNonce(_parameters.oracleNonce);
 
-    //     MintVariables memory _variables = MintVariables(
-    //         strategyId,
-    //         _parameters.alpha,
-    //         _parameters.omega,
-    //         _terms.basis,
-    //         _terms.alphaCollateralRequirement,
-    //         _terms.omegaCollateralRequirement,
-    //         _terms.alphaFee,
-    //         _terms.omegaFee,
-    //         _parameters.premium
-    //     );
+        uint256 strategyId = _createStrategy(
+            _parameters.alpha,
+            _parameters.omega,
+            _parameters.expiry,
+            _parameters.bra,
+            _parameters.ket,
+            _parameters.basis,
+            _parameters.amplitude,
+            _parameters.phase,
+            _parameters.transferable
+        );
 
-    //     collateralManager.peppermint(_variables, msg.sender, _parameters.alphaDepositId, _parameters.omegaDepositId);
+        ExecutePeppermintParameters memory peppermintParameters = ExecutePeppermintParameters(
+            strategyId,
+            _parameters.alpha,
+            _parameters.omega,
+            _parameters.basis,
+            _parameters.premium,
+            _parameters.alphaCollateralRequirement,
+            _parameters.omegaCollateralRequirement,
+            _parameters.alphaFee,
+            _parameters.omegaFee,
+            msg.sender,
+            _parameters.alphaDepositId,
+            _parameters.omegaDepositId
+        );
 
-    //     _incrementMintNonce(_parameters.alpha, _parameters.omega);
+        fundManager.executePeppermint(peppermintParameters);
 
-    //     emit Peppermint(strategyId);
-    // }
+        _incrementMintNonce(_parameters.alpha, _parameters.omega);
 
-    // // Transfer a strategy position
-    // // Ensure correct collateral and security flow when transferring to self
-    // function transfer(TransferTerms calldata _terms, TransferParameters calldata _parameters) external {
-    //     Strategy storage strategy = strategies[_parameters.strategyId];
+        emit Peppermint(strategyId);
+    }
 
-    //     Utils.validateTransferTerms(_terms, strategy, trufinOracle, _parameters.oracleSignature);
+    /// @notice Used by a strategy party to transfer their position.
+    /// @dev Sender and recipient signatures required for approval. Static party signature only required if strategy is non-transferable.
+    function transfer(TransferParameters calldata _parameters) external {
+        Strategy storage strategy = strategies[_parameters.strategyId];
 
-    //     address sender = _terms.alphaTransfer ? strategy.alpha : strategy.omega;
+        _checkOracleNonce(_parameters.oracleNonce);
 
-    //     Utils.ensureTransferApprovals(_parameters, strategy, sender, _terms.alphaTransfer);
+        address sender = _parameters.alphaTransfer ? strategy.alpha : strategy.omega;
 
-    //     _checkOracleNonce(_terms.oracleNonce);
+        Validator.approveTransfer(_parameters, strategy, sender, oracle);
 
-    //     collateralManager.transfer(
-    //         _parameters.strategyId,
-    //         sender,
-    //         _parameters.recipient,
-    //         strategy.basis,
-    //         _terms.recipientCollateralRequirement,
-    //         _terms.senderFee,
-    //         _terms.recipientFee,
-    //         _parameters.premium
-    //     );
+        ExecuteTransferParameters memory executeTransferParameters = ExecuteTransferParameters(
+            _parameters.strategyId,
+            sender,
+            _parameters.recipient,
+            strategy.basis,
+            _parameters.recipientCollateralRequirement,
+            _parameters.senderFee,
+            _parameters.recipientFee,
+            _parameters.premium,
+            _parameters.alphaTransfer
+        );
 
-    //     // Increment strategy's action nonce to prevent signature replay
-    //     strategy.actionNonce++;
+        fundManager.executeTransfer(executeTransferParameters);
 
-    //     // Update state to reflect postition transfer
-    //     if (_terms.alphaTransfer) {
-    //         strategy.alpha = _parameters.recipient;
-    //     } else {
-    //         strategy.omega = _parameters.recipient;
-    //     }
+        // Increment strategy's action nonce to prevent signature replay
+        strategy.actionNonce++;
 
-    //     emit Transfer(_parameters.strategyId);
-    // }
+        // Update state to reflect postition transfer
+        if (_parameters.alphaTransfer) {
+            strategy.alpha = _parameters.recipient;
+        } else {
+            strategy.omega = _parameters.recipient;
+        }
+
+        emit Transfer(_parameters.strategyId);
+    }
 
     // // Combine two strategies into one
     // // We delete one strategy (strategyTwo) and overwrite the other (strategyOne) into the new combined strategy
@@ -223,9 +240,9 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //         _parameters.oracleSignature
     //     );
 
-    //     Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
+    //     Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, oracle, _parameters.oracleSignature);
 
-    //     collateralManager.combine(
+    //     fundManager.combine(
     //         _parameters.strategyOneId,
     //         _parameters.strategyTwoId,
     //         strategyOne.alpha,
@@ -254,19 +271,14 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     _checkOracleNonce(_terms.oracleNonce);
 
-    //     Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, trufinOracle, _parameters.oracleSignature);
+    //     Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, oracle, _parameters.oracleSignature);
 
     //     Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo);
 
-    //     // collateralManager.novate();
+    //     // fundManager.novate();
 
     //     emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     // }
-
-    // Used to top up collateral in a strategy in order to prevent liquidation
-    function topUp() external payable {
-        //
-    }
 
     // // Call to finalise a strategy's positions after it has expired
     // function exercise(ExerciseTerms calldata _terms, ExerciseParameters calldata _parameters) external {
@@ -274,9 +286,9 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Strategy storage strategy = strategies[_parameters.strategyId];
 
-    //     Utils.validateExerciseTerms(_terms, strategy, trufinOracle, _parameters.oracleSignature);
+    //     Utils.validateExerciseTerms(_terms, strategy, oracle, _parameters.oracleSignature);
 
-    //     collateralManager.exercise(
+    //     fundManager.exercise(
     //         _parameters.strategyId,
     //         strategy.alpha,
     //         strategy.omega,
@@ -295,7 +307,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //     // Prevents replay of out-of-date signatures
     //     require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
 
-    //     Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, trufinOracle);
+    //     Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, oracle);
 
     //     // Perform oracle state update
     //     oracleNonce = _oracleNonce;
@@ -309,14 +321,14 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Strategy storage strategy = strategies[_params.strategyId];
 
-    //     uint256 alphaInitialCollateral = collateralManager.allocations(strategy.alpha, _params.strategyId);
-    //     uint256 omegaInitialCollateral = collateralManager.allocations(strategy.omega, _params.strategyId);
+    //     uint256 alphaInitialCollateral = fundManager.allocations(strategy.alpha, _params.strategyId);
+    //     uint256 omegaInitialCollateral = fundManager.allocations(strategy.omega, _params.strategyId);
 
     //     Utils.validateLiquidationTerms(
     //         _terms,
     //         strategy,
     //         _params.oracleSignature,
-    //         trufinOracle,
+    //         oracle,
     //         alphaInitialCollateral,
     //         omegaInitialCollateral
     //     );
@@ -324,7 +336,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //     // Reduce strategy's amplitude to maintain collateralisation
     //     strategy.amplitude = _terms.postLiquidationAmplitude;
 
-    //     collateralManager.liquidate(
+    //     fundManager.liquidate(
     //         _params.strategyId,
     //         strategy.alpha,
     //         strategy.omega,
@@ -343,13 +355,13 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //     liquidator = _liquidator;
     // }
 
-    // function setCollateralManager(address _collateralManager) external onlyOwner {
-    //     collateralManager = ICollateralManager(_collateralManager);
+    // function setfundManager(address _fundManager) external onlyOwner {
+    //     fundManager = IFundManager(_fundManager);
     // }
 
-    // // *** INTERNAL METHODS ***
+    // // *** METHODS ***
 
-    // Internal method that updates a pairs mint nonce
+    // method that updates a pairs mint nonce
     function _incrementMintNonce(address partyOne, address partyTwo) private {
         if (partyOne < partyTwo) {
             mintNonce[partyOne][partyTwo]++;
@@ -365,13 +377,15 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
         // Check whether contract is locked due to oracle nonce not being updated
         require(
-            (block.timestamp < latestOracleNonceUpdateTime + lockTime),
+            (block.timestamp < latestOracleNonceUpdateTime + selfLockPeriod),
             "TFM: Contract locked as oracle nonce has not been updated"
         );
     }
 
     // Creates a new strategy and returns its ID
     function _createStrategy(
+        address _alpha,
+        address _omega,
         uint48 _expiry,
         address _bra,
         address _ket,
@@ -384,6 +398,8 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
         Strategy storage strategy = strategies[newStrategyId];
 
+        strategy.alpha = _alpha;
+        strategy.omega = _omega;
         strategy.transferable = _transferable;
         strategy.bra = _bra;
         strategy.ket = _ket;
@@ -396,7 +412,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _deleteStrategy(uint256 _strategyId) internal {
-        // Also delete CM state
+        // Also delete CM state? => or does this save bytecode
         delete strategies[_strategyId];
     }
 
