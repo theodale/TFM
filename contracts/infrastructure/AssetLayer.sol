@@ -8,14 +8,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "../interfaces/IFundManager.sol";
+import "../interfaces/IAssetLayer.sol";
 import "../interfaces/IWallet.sol";
 
 import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
-contract FundManager is IFundManager, OwnableUpgradeable, UUPSUpgradeable {
+contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     // *** LIBRARIES ***
 
     using SafeERC20 for IERC20;

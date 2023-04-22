@@ -7,8 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../interfaces/ITFM.sol";
-import "../interfaces/IFundManager.sol";
+import "../interfaces/IActionLayer.sol";
+import "../interfaces/IAssetLayer.sol";
 import "../libraries/Validator.sol";
 import "../interfaces/IWallet.sol";
 import "../misc/Types.sol";
@@ -17,8 +17,7 @@ import "hardhat/console.sol";
 
 /// @title The Field Machine
 /// @author Field Labs
-/// @notice A peer-to-peer options trading base layer
-contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
+contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     // *** STATE VARIABLES ***
 
     /// @notice Current value of the TFM's oracle nonce.
@@ -27,8 +26,8 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Stores ID of the next strategy to be minted.
     uint256 public strategyCounter;
 
-    // The FundManager contract being utilised by this TFM
-    IFundManager fundManager;
+    // The AssetLayer contract being utilised by this ActionLayer
+    IAssetLayer assetLayer;
 
     // Signs and validates data packages
     address oracle;
@@ -57,7 +56,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
         address _liquidator,
         address _oracle,
         uint256 _selfLockPeriod,
-        IFundManager _fundManager
+        IAssetLayer _assetLayer
     ) external initializer {
         // Initialize inherited state
         __Ownable_init();
@@ -69,7 +68,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
         oracle = _oracle;
         selfLockPeriod = _selfLockPeriod;
         latestOracleNonceUpdateTime = block.timestamp;
-        fundManager = _fundManager;
+        assetLayer = _assetLayer;
     }
 
     // *** GETTERS ***
@@ -109,7 +108,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
         Validator.approveSpearmint(_parameters, oracle, getMintNonce(_parameters.alpha, _parameters.omega));
 
-        fundManager.executeSpearmint(
+        assetLayer.executeSpearmint(
             strategyId,
             _parameters.alpha,
             _parameters.omega,
@@ -176,7 +175,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
             _parameters.omegaDepositId
         );
 
-        fundManager.executePeppermint(peppermintParameters);
+        assetLayer.executePeppermint(peppermintParameters);
 
         _incrementMintNonce(_parameters.alpha, _parameters.omega);
 
@@ -206,7 +205,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
             _parameters.alphaTransfer
         );
 
-        fundManager.executeTransfer(executeTransferParameters);
+        assetLayer.executeTransfer(executeTransferParameters);
 
         // Increment strategy's action nonce to prevent signature replay
         strategy.actionNonce++;
@@ -242,7 +241,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, oracle, _parameters.oracleSignature);
 
-    //     fundManager.combine(
+    //     assetLayer.combine(
     //         _parameters.strategyOneId,
     //         _parameters.strategyTwoId,
     //         strategyOne.alpha,
@@ -275,7 +274,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo);
 
-    //     // fundManager.novate();
+    //     // assetLayer.novate();
 
     //     emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     // }
@@ -288,7 +287,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Utils.validateExerciseTerms(_terms, strategy, oracle, _parameters.oracleSignature);
 
-    //     fundManager.exercise(
+    //     assetLayer.exercise(
     //         _parameters.strategyId,
     //         strategy.alpha,
     //         strategy.omega,
@@ -321,8 +320,8 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
 
     //     Strategy storage strategy = strategies[_params.strategyId];
 
-    //     uint256 alphaInitialCollateral = fundManager.allocations(strategy.alpha, _params.strategyId);
-    //     uint256 omegaInitialCollateral = fundManager.allocations(strategy.omega, _params.strategyId);
+    //     uint256 alphaInitialCollateral = assetLayer.allocations(strategy.alpha, _params.strategyId);
+    //     uint256 omegaInitialCollateral = assetLayer.allocations(strategy.omega, _params.strategyId);
 
     //     Utils.validateLiquidationTerms(
     //         _terms,
@@ -336,7 +335,7 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //     // Reduce strategy's amplitude to maintain collateralisation
     //     strategy.amplitude = _terms.postLiquidationAmplitude;
 
-    //     fundManager.liquidate(
+    //     assetLayer.liquidate(
     //         _params.strategyId,
     //         strategy.alpha,
     //         strategy.omega,
@@ -355,8 +354,8 @@ contract TFM is ITFM, OwnableUpgradeable, UUPSUpgradeable {
     //     liquidator = _liquidator;
     // }
 
-    // function setfundManager(address _fundManager) external onlyOwner {
-    //     fundManager = IFundManager(_fundManager);
+    // function setassetLayer(address _assetLayer) external onlyOwner {
+    //     assetLayer = IassetLayer(_assetLayer);
     // }
 
     // // *** METHODS ***

@@ -4,7 +4,7 @@ pragma solidity =0.8.14;
 
 import "../misc/Types.sol";
 
-interface IFundManager {
+interface IAssetLayer {
     function executeSpearmint(
         uint256 _strategyId,
         address _alpha,
