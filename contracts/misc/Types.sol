@@ -92,9 +92,7 @@ struct TransferParameters {
     bool alphaTransfer;
 }
 
-// COMBINE
-
-struct CombinationTerms {
+struct CombinationParameters {
     uint256 strategyOneAlphaFee;
     uint256 strategyOneOmegaFee;
     uint256 resultingAlphaCollateralRequirement;
@@ -104,9 +102,6 @@ struct CombinationTerms {
     uint256 oracleNonce;
     // True if alpha and omega hold same positions in both strategies
     bool aligned;
-}
-
-struct CombinationParameters {
     uint256 strategyOneId;
     uint256 strategyTwoId;
     bytes strategyOneAlphaSignature;
@@ -114,9 +109,15 @@ struct CombinationParameters {
     bytes oracleSignature;
 }
 
-// NOVATE
-
-struct NovationTerms {
+struct NovationParameters {
+    uint256 strategyOneId;
+    uint256 strategyTwoId;
+    bytes oracleSignature;
+    bytes middlePartySignature;
+    // These are not used if their respective strategy is transferable
+    bytes strategyOneNonMiddlePartySignature;
+    bytes strategyTwoNonMiddlePartySignature;
+    bool updateStrategyTwoOmega;
     uint256 oracleNonce;
     // Collateral requirements of resulting strategies
     uint256 strategyOneResultingAlphaCollateralRequirement;
@@ -130,16 +131,6 @@ struct NovationTerms {
     uint256 fee;
 }
 
-struct NovationParameters {
-    uint256 strategyOneId;
-    uint256 strategyTwoId;
-    bytes oracleSignature;
-    bytes middlePartySignature;
-    // These are not used if their respective strategy is transferable
-    bytes strategyOneNonMiddlePartySignature;
-    bytes strategyTwoNonMiddlePartySignature;
-    bool updateStrategyTwoOmega;
-}
 
 // EXERCISE
 

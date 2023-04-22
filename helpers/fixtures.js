@@ -13,7 +13,7 @@ async function freshDeployment() {
   const WalletImplementation = await Wallet.deploy();
 
   // Deploy FundManager
-  const FundManagerFactory = await ethers.getContractFactory("FundManager");
+  const FundManagerFactory = await ethers.getContractFactory("AssetLayer");
   const FundManager = await upgrades.deployProxy(
     FundManagerFactory,
     [treasury.address, owner.address, WalletImplementation.address],
@@ -23,7 +23,7 @@ async function freshDeployment() {
   );
 
   // Deploy TFM
-  const TFMFactory = await ethers.getContractFactory("TFM", {
+  const TFMFactory = await ethers.getContractFactory("ActionLayer", {
     libraries: {
       Validator: Validator.address,
     },

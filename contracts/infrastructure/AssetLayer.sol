@@ -302,6 +302,38 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         reserves[_parameters.sender][_parameters.basis] = availableSender - requirementSender;
     }
 
+    function executeCombination(
+        uint256 _strategyOneId,
+        uint256 _strategyTwoId,
+        address _alphaOne,
+        address _omegaOne,
+        address _basis,
+        uint256 _resultingAlphaCollateralRequirement,
+        uint256 _resultingOmegaCollateralRequirement,
+        uint256 _alphaOneFee,
+        uint256 _omegaOneFee
+    ) external tfmOnly {
+        // Get each combiner's available collateral for their combined strategy position
+        // uint256 availableAlphaOne = reserves[_alphaOne][_basis] +
+        //     collaterals[_alphaOne][_strategyOneId] +
+        //     collaterals[_alphaOne][_strategyTwoId];
+        // uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
+        //     collaterals[_omegaOne][_strategyOneId] +
+        //     collaterals[_omegaOne][_strategyTwoId];
+        // // Update deposits
+        // deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
+        // deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
+        // // Set combined strategy collaterals
+        // collaterals[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
+        // collaterals[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
+        // // Delete redundant collaterals
+        // delete collaterals[_alphaOne][_strategyTwoId];
+        // delete collaterals[_omegaOne][_strategyTwoId];
+        // // Transfer fees
+        // _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
+        // _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
+    }
+
     // *** INTERNAL METHODS ***
 
     // Transfers ERC20 tokens from a user's wallet to a recipient address
@@ -385,39 +417,6 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         }
 
         return (alphaRemaining, omegaRemaining);
-    }
-
-    // Issue if alpha == omega
-    function combine(
-        uint256 _strategyOneId,
-        uint256 _strategyTwoId,
-        address _alphaOne,
-        address _omegaOne,
-        address _basis,
-        uint256 _resultingAlphaCollateralRequirement,
-        uint256 _resultingOmegaCollateralRequirement,
-        uint256 _alphaOneFee,
-        uint256 _omegaOneFee
-    ) external tfmOnly {
-        // // Get each combiner's available collateral for their combined strategy position
-        // uint256 availableAlphaOne = deposits[_alphaOne][_basis] +
-        //     collaterals[_alphaOne][_strategyOneId] +
-        //     collaterals[_alphaOne][_strategyTwoId];
-        // uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
-        //     collaterals[_omegaOne][_strategyOneId] +
-        //     collaterals[_omegaOne][_strategyTwoId];
-        // // Update deposits
-        // deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
-        // deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
-        // // Set combined strategy collaterals
-        // collaterals[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
-        // collaterals[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
-        // // Delete redundant collaterals
-        // delete collaterals[_alphaOne][_strategyTwoId];
-        // delete collaterals[_omegaOne][_strategyTwoId];
-        // // Transfer fees
-        // _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
-        // _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
     }
 
     function novate() external tfmOnly {}

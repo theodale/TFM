@@ -80,24 +80,6 @@ library Validator {
         );
     }
 
-    //     struct TransferParameters {
-    //     uint256 strategyId;
-    //     address recipient;
-    //     // If premium is +ve/-ve => sender/recipient pays recipient/sender
-    //     int256 premium;
-    //     // Links to specific set of transfer terms => this indicates which party is transferring their position
-    //     bytes oracleSignature;
-    //     bytes senderSignature;
-    //     bytes recipientSignature;
-    //     // Not used if the strategy is transferable
-    //     bytes staticPartySignature;
-    //     uint256 recipientCollateralRequirement;
-    //     uint256 oracleNonce;
-    //     uint256 senderFee;
-    //     uint256 recipientFee;
-    //     bool alphaTransfer;
-    // }
-
     function approveTransfer(
         TransferParameters calldata _parameters,
         Strategy storage _strategy,
@@ -149,6 +131,76 @@ library Validator {
         require(
             _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
             "TRANSFER: Invalid Trufin oracle signature"
+        );
+    }
+
+    function approveCombination(
+        CombinationParameters calldata _parameters,
+        Strategy storage _strategyOne,
+        Strategy storage _strategyTwo,
+        address _oracle
+    ) external view {
+        bytes memory combinerMessage = abi.encodePacked(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            _strategyOne.actionNonce,
+            _strategyTwo.actionNonce,
+            _parameters.oracleSignature
+        );
+
+        bytes32 hash = _generateMessageHash(combinerMessage);
+
+        require(
+            _isValidSignature(hash, _parameters.strategyOneAlphaSignature, _strategyOne.alpha),
+            "COMBINATION: Invalid strategy two alpha signature"
+        );
+        require(
+            _isValidSignature(hash, _parameters.strategyOneOmegaSignature, _strategyOne.omega),
+            "COMBINATION: Invalid strategy one omega signature"
+        );
+
+        // Ensure alignment specified by terms is accurate
+        if (_parameters.aligned) {
+            require(
+                _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
+                "COMBINATION: Strategies are not aligned"
+            );
+        } else {
+            require(
+                _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
+                "COMBINATION: Strategies are not aligned"
+            );
+        }
+
+        // Investigate security risk with two phases in message => should be ok if not next to each other?
+        bytes memory oracleMessage = abi.encodePacked(
+            abi.encodePacked(
+                _strategyOne.expiry,
+                _strategyOne.bra,
+                _strategyOne.ket,
+                _strategyOne.basis,
+                _strategyOne.amplitude,
+                _strategyOne.phase,
+                _strategyTwo.expiry,
+                _strategyTwo.bra,
+                _strategyTwo.ket,
+                _strategyTwo.basis
+            ),
+            abi.encodePacked(
+                _strategyTwo.amplitude,
+                _strategyTwo.phase,
+                _parameters.strategyOneAlphaFee,
+                _parameters.strategyOneOmegaFee,
+                _parameters.resultingAlphaCollateralRequirement,
+                _parameters.resultingOmegaCollateralRequirement,
+                _parameters.resultingPhase
+            ),
+            abi.encodePacked(_parameters.resultingAmplitude, _parameters.oracleNonce, _parameters.aligned)
+        );
+
+        require(
+            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+            "COMBINATION: Invalid Trufin oracle signature"
         );
     }
 

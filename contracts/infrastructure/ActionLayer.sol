@@ -220,48 +220,38 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         emit Transfer(_parameters.strategyId);
     }
 
-    // // Combine two strategies into one
-    // // We delete one strategy (strategyTwo) and overwrite the other (strategyOne) into the new combined strategy
-    // // This combined strategy has strategyOne's alpha and omega  => terms offered for this direction
-    // function combine(CombinationTerms calldata _terms, CombinationParameters calldata _parameters) external {
-    //     Strategy storage strategyOne = strategies[_parameters.strategyOneId];
-    //     Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
+    /// @notice Used to combine two strategies shared between two parties into one.
+    /// @dev We delete one strategy (strategyTwo) and overwrite the other (strategyOne) into the new combined strategy.
+    /// @dev The combined strategy has strategy one's alpha and omega.
+    function combine(CombinationParameters calldata _parameters) external {
+        _checkOracleNonce(_parameters.oracleNonce);
 
-    //     _checkOracleNonce(_terms.oracleNonce);
+        Strategy storage strategyOne = strategies[_parameters.strategyOneId];
+        Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
 
-    //     Utils.checkCombinationApprovals(
-    //         _parameters.strategyOneId,
-    //         _parameters.strategyTwoId,
-    //         strategyOne,
-    //         strategyTwo,
-    //         _parameters.strategyOneAlphaSignature,
-    //         _parameters.strategyOneOmegaSignature,
-    //         _parameters.oracleSignature
-    //     );
+        Validator.approveCombination(_parameters, strategyOne, strategyTwo, oracle);
 
-    //     Utils.validateCombinationTerms(_terms, strategyOne, strategyTwo, oracle, _parameters.oracleSignature);
+        // assetLayer.executeCombination(
+        //     _parameters.strategyOneId,
+        //     _parameters.strategyTwoId,
+        //     strategyOne.alpha,
+        //     strategyOne.omega,
+        //     strategyOne.basis,
+        //     _parameters.resultingAlphaCollateralRequirement,
+        //     _parameters.resultingOmegaCollateralRequirement,
+        //     _parameters.strategyOneAlphaFee,
+        //     _parameters.strategyOneOmegaFee
+        // );
 
-    //     assetLayer.combine(
-    //         _parameters.strategyOneId,
-    //         _parameters.strategyTwoId,
-    //         strategyOne.alpha,
-    //         strategyOne.omega,
-    //         strategyOne.basis,
-    //         _terms.resultingAlphaCollateralRequirement,
-    //         _terms.resultingOmegaCollateralRequirement,
-    //         _terms.strategyOneAlphaFee,
-    //         _terms.strategyOneOmegaFee
-    //     );
+        // Minimally alter strategy one to combined form
+        strategyOne.phase = _parameters.resultingPhase;
+        strategyOne.amplitude = _parameters.resultingAmplitude;
 
-    //     // Minimally alter strategy one to combined form
-    //     strategyOne.phase = _terms.resultingPhase;
-    //     strategyOne.amplitude = _terms.resultingAmplitude;
+        // Deleting strategy two prevents approval signature replay => no need to increment strategy one's action nonce
+        _deleteStrategy(_parameters.strategyTwoId);
 
-    //     // Deleting strategy two prevents approval signature replay => no need to increment strategy one's action nonce
-    //     _deleteStrategy(_parameters.strategyTwoId);
-
-    //     emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
-    // }
+        emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
+    }
 
     // // Alter two same-phase strategies shared between parties to reduce overall collateral requirements
     // function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
