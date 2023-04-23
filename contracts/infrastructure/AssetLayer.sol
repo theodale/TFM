@@ -398,7 +398,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         delete collaterals[_omega][_strategyId].omegaBalance;
     }
 
-    function liquidate(
+    function executeLiquidation(
         uint256 _strategyId,
         address _alpha,
         address _omega,
@@ -407,36 +407,44 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         uint256 _alphaPenalisation,
         uint256 _omegaPenalisation
     ) external tfmOnly {
-        // // Cache wallets on stack
-        // ITrufinWallet alphaWallet = wallets[_alpha];
-        // ITrufinWallet omegaWallet = wallets[_omega];
-        // // Cache to avoid multiple storage writes
-        // uint256 alphaReduction;
-        // uint256 omegaReduction;
-        // uint256 absoluteCompensation;
-        // // Process any compensation
-        // if (_compensation > 0) {
-        //     absoluteCompensation = uint256(_compensation);
-        //     deposits[_omega][_basis] += absoluteCompensation;
-        //     alphaReduction = absoluteCompensation;
-        //     _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
-        // } else if (_compensation < 0) {
-        //     absoluteCompensation = uint256(-_compensation);
-        //     deposits[_alpha][_basis] += absoluteCompensation;
-        //     omegaReduction = absoluteCompensation;
-        //     _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
-        // }
-        // // Transfer protocol fees
-        // if (_alphaPenalisation > 0) {
-        //     alphaReduction += _alphaPenalisation;
-        //     _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
-        // }
-        // if (_omegaPenalisation > 0) {
-        //     omegaReduction += _omegaPenalisation;
-        //     _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
-        // }
-        // collaterals[_alpha][_strategyId] -= alphaReduction;
-        // collaterals[_omega][_strategyId] -= omegaReduction;
+        uint256 alphaReduction;
+        uint256 omegaReduction;
+
+        uint256 absoluteCompensation;
+
+        // Transfer any compensation
+        if (_compensation > 0) {
+            absoluteCompensation = uint256(_compensation);
+
+            reserves[_omega][_basis] += absoluteCompensation;
+
+            alphaReduction = absoluteCompensation;
+
+            _transferFromWallet(_basis, _alpha, address(wallets[_omega]), absoluteCompensation);
+        } else if (_compensation < 0) {
+            absoluteCompensation = uint256(-_compensation);
+
+            reserves[_alpha][_basis] += absoluteCompensation;
+
+            omegaReduction = absoluteCompensation;
+
+            _transferFromWallet(_basis, _omega, address(wallets[_alpha]), absoluteCompensation);
+        }
+
+        // Transfer penalisations to treasury
+        if (_alphaPenalisation > 0) {
+            alphaReduction += _alphaPenalisation;
+
+            _transferFromWallet(_basis, _alpha, treasury, _alphaPenalisation);
+        }
+        if (_omegaPenalisation > 0) {
+            omegaReduction += _omegaPenalisation;
+
+            _transferFromWallet(_basis, _omega, treasury, _omegaPenalisation);
+        }
+
+        collaterals[_alpha][_strategyId].alphaBalance -= alphaReduction;
+        collaterals[_omega][_strategyId].omegaBalance -= omegaReduction;
     }
 
     // *** INTERNAL METHODS ***

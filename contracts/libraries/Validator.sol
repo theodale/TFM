@@ -255,6 +255,19 @@ library Validator {
         );
     }
 
+    function approveOracleNonceUpdate(
+        uint256 _oracleNonce,
+        bytes calldata _oracleSignature,
+        address _oracle
+    ) external view {
+        bytes memory encoding = abi.encodePacked(_oracleNonce);
+
+        require(
+            _isValidSignature(encoding, _oracleSignature, _oracle),
+            "ORACLE NONCE UPDATE: Invalid Trufin oracle signature"
+        );
+    }
+
     // Transfers ERC20 tokens from a user's wallet to a recipient address
     function _transferFromWallet(
         mapping(address => ITrufinWallet) storage _wallets,

@@ -1,8 +1,8 @@
 const { ethers } = require("hardhat");
 
-const getLiquidationTerms = async (
+const getOracleLiquidationSignature = async (
   TFM,
-  collateralManager,
+  FundManager,
   oracle,
   strategyId,
   compensation,
@@ -14,13 +14,15 @@ const getLiquidationTerms = async (
 
   const strategy = await TFM.getStrategy(strategyId);
 
-  const alphaInitialAllocation = await collateralManager.allocations(
+  const alphaInitialAllocation = await FundManager.getAllocation(
     strategy.alpha,
-    strategyId
+    strategyId,
+    true
   );
-  const omegaInitialAllocation = await collateralManager.allocations(
+  const omegaInitialAllocation = await FundManager.getAllocation(
     strategy.omega,
-    strategyId
+    strategyId,
+    false
   );
 
   const hash = ethers.utils.solidityKeccak256(
@@ -58,17 +60,9 @@ const getLiquidationTerms = async (
 
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-  const liquidationTerms = {
-    oracleNonce,
-    compensation,
-    alphaPenalisation,
-    omegaPenalisation,
-    postLiquidationAmplitude,
-  };
-
-  return { oracleSignature, liquidationTerms };
+  return oracleSignature;
 };
 
 module.exports = {
-  getLiquidationTerms,
+  getOracleLiquidationSignature,
 };

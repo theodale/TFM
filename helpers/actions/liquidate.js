@@ -1,34 +1,40 @@
-const { getLiquidationTerms } = require("../terms/liquidate");
+const { getOracleLiquidationSignature } = require("../oracle/liquidate.js");
 
 const liquidate = async (
   TFM,
-  CollateralManager,
+  FundManager,
   oracle,
   liquidator,
   strategyId,
   compensation,
-  alphaFee,
-  omegaFee,
+  alphaPenalisation,
+  omegaPenalisation,
   postLiquidationAmplitude
 ) => {
-  const { oracleSignature, liquidationTerms } = await getLiquidationTerms(
+  const oracleSignature = await getOracleLiquidationSignature(
     TFM,
-    CollateralManager,
+    FundManager,
     oracle,
     strategyId,
     compensation,
-    alphaFee,
-    omegaFee,
+    alphaPenalisation,
+    omegaPenalisation,
     postLiquidationAmplitude
   );
 
+  const oracleNonce = await TFM.oracleNonce();
+
   const liquidationParameters = {
-    oracleSignature,
+    oracleNonce,
+    compensation,
+    alphaPenalisation,
+    omegaPenalisation,
+    postLiquidationAmplitude,
     strategyId,
+    oracleSignature,
   };
 
   const liquidateTransaction = await TFM.connect(liquidator).liquidate(
-    liquidationTerms,
     liquidationParameters
   );
 

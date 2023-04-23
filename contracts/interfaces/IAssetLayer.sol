@@ -37,6 +37,16 @@ interface IAssetLayer {
         int256 _payout
     ) external;
 
+    function executeLiquidation(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        int256 _compensation,
+        address _basis,
+        uint256 _alphaPenalisation,
+        uint256 _omegaPenalisation
+    ) external;
+
     event Deposit(address indexed user, address basis, uint256 amount);
 
     event Withdrawal(address indexed user, address basis, uint256 amount);

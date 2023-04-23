@@ -256,23 +256,16 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
-    // // Alter two same-phase strategies shared between parties to reduce overall collateral requirements
     // function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
     //     Strategy storage strategyOne = strategies[_parameters.strategyOneId];
     //     Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
 
     //     _checkOracleNonce(_terms.oracleNonce);
 
-    //     Utils.validateNovationTerms(_terms, strategyOne, strategyTwo, oracle, _parameters.oracleSignature);
-
-    //     Utils.checkNovationApprovals(_parameters, strategyOne, strategyTwo);
-
-    //     // assetLayer.novate();
-
     //     emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     // }
 
-    // Call to finalise a strategy's positions after it has expired
+    /// @notice Call to finalise a strategy's positions after it has expired.
     function exercise(ExerciseParameters calldata _parameters) external {
         _checkOracleNonce(_parameters.oracleNonce);
 
@@ -326,31 +319,31 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         // Reduce strategy's amplitude to maintain collateralisation
         strategy.amplitude = _parameters.postLiquidationAmplitude;
 
-        // assetLayer.liquidate(
-        //     _params.strategyId,
-        //     strategy.alpha,
-        //     strategy.omega,
-        //     _terms.compensation,
-        //     strategy.basis,
-        //     _terms.alphaPenalisation,
-        //     _terms.omegaPenalisation
-        // );
+        assetLayer.executeLiquidation(
+            _parameters.strategyId,
+            strategy.alpha,
+            strategy.omega,
+            _parameters.compensation,
+            strategy.basis,
+            _parameters.alphaPenalisation,
+            _parameters.omegaPenalisation
+        );
 
         emit Liquidation(_parameters.strategyId);
     }
 
-    // function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
-    //     // Prevents replay of out-of-date signatures
-    //     require(_oracleNonce > oracleNonce, "TFM: Oracle nonce can only be increased");
+    function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
+        // Prevents replay of out-of-date signatures
+        require(oracleNonce < _oracleNonce, "TFM: Oracle nonce can only be increased");
 
-    //     Utils.validateOracleNonceUpdate(_oracleNonce, _oracleSignature, oracle);
+        Validator.approveOracleNonceUpdate(_oracleNonce, _oracleSignature, oracle);
 
-    //     // Perform oracle state update
-    //     oracleNonce = _oracleNonce;
-    //     latestOracleNonceUpdateTime = block.timestamp;
+        // Perform oracle state update
+        oracleNonce = _oracleNonce;
+        latestOracleNonceUpdateTime = block.timestamp;
 
-    //     emit OracleNonceUpdated(_oracleNonce);
-    // }
+        emit OracleNonceUpdated(_oracleNonce);
+    }
 
     // // *** ADMIN SETTERS ***
 
