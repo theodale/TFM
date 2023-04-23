@@ -131,7 +131,6 @@ struct NovationParameters {
     uint256 fee;
 }
 
-
 // EXERCISE
 
 struct ExerciseTerms {
@@ -189,6 +188,20 @@ struct ExecuteTransferParameters {
     uint256 recipientFee;
     int256 premium;
     bool alphaTransfer;
+}
+
+struct ExecuteCombinationParameters {
+    uint256 strategyOneId;
+    uint256 strategyTwoId;
+    uint256 resultingAlphaCollateralRequirement;
+    uint256 resultingOmegaCollateralRequirement;
+    address basis;
+    // Position in resulting combined strategy
+    address alphaOne;
+    address omegaOne;
+    uint256 strategyOneAlphaFee;
+    uint256 strategyOneOmegaFee;
+    bool aligned;
 }
 
 struct ApprovePeppermintParameters {

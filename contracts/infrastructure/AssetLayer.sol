@@ -15,6 +15,8 @@ import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
+/// @title TFM Asset Layer
+/// @author Field Labs
 contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     // *** LIBRARIES ***
 
@@ -196,7 +198,6 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         reserves[_omega][_basis] = omegaRemaining;
     }
 
-    // Pepperminters specify ID of each parties deposit
     function executePeppermint(ExecutePeppermintParameters calldata _parameters) external tfmOnly {
         LockedDeposit storage alphaDeposit = lockedDeposits[_parameters.alpha][_parameters.pepperminter][
             _parameters.basis
@@ -230,10 +231,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         omegaDeposit.amount = omegaRemaining;
     }
 
-    // 443542
-
     // Ensure correct collateral and security flow when transferring to self
-    // Premium transferred before collateral locked and fee taken
     function executeTransfer(ExecuteTransferParameters calldata _parameters) external tfmOnly {
         uint256 requirementRecipient = _parameters.recipientCollateralRequirement + _parameters.recipientFee;
         uint256 requirementSender = _parameters.senderFee;
@@ -247,6 +245,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
             );
 
         {
+            // Premium transferred before collateral locked and fee taken
             uint256 absolutePremium;
 
             // NEED TO CACHE one wallet type each time
@@ -302,18 +301,46 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         reserves[_parameters.sender][_parameters.basis] = availableSender - requirementSender;
     }
 
-    function executeCombination(
-        uint256 _strategyOneId,
-        uint256 _strategyTwoId,
-        address _alphaOne,
-        address _omegaOne,
-        address _basis,
-        uint256 _resultingAlphaCollateralRequirement,
-        uint256 _resultingOmegaCollateralRequirement,
-        uint256 _alphaOneFee,
-        uint256 _omegaOneFee
-    ) external tfmOnly {
-        // Get each combiner's available collateral for their combined strategy position
+    function executeCombination(ExecuteCombinationParameters calldata _parameters) external tfmOnly {
+        uint256 availableAlphaOne;
+        uint256 availableOmegaOne;
+
+        if (_parameters.aligned) {
+            availableAlphaOne =
+                reserves[_parameters.alphaOne][_parameters.basis] +
+                collateralBalances[_parameters.alphaOne][_parameters.strategyOneId].alphaBalance +
+                collateralBalances[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
+
+            availableOmegaOne =
+                reserves[_parameters.omegaOne][_parameters.basis] +
+                collateralBalances[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
+                collateralBalances[_parameters.omegaOne][_parameters.strategyTwoId].omegaBalance;
+        } else {
+            availableAlphaOne =
+                reserves[_parameters.alphaOne][_parameters.basis] +
+                collateralBalances[_parameters.alphaOne][_parameters.strategyOneId].omegaBalance +
+                collateralBalances[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
+
+            availableOmegaOne =
+                reserves[_parameters.omegaOne][_parameters.basis] +
+                collateralBalances[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
+                collateralBalances[_parameters.omegaOne][_parameters.strategyTwoId].alphaBalance;
+        }
+
+        // // Ensure alignment specified by terms is accurate
+        // if (_parameters.aligned) {
+        //     require(
+        //         _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
+        //         "COMBINATION: Strategies are not aligned"
+        //     );
+        // } else {
+        //     require(
+        //         _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
+        //         "COMBINATION: Strategies are not aligned"
+        //     );
+        // }
+
+        // // Get each combiner's available collateral for their combined strategy position
         // uint256 availableAlphaOne = reserves[_alphaOne][_basis] +
         //     collaterals[_alphaOne][_strategyOneId] +
         //     collaterals[_alphaOne][_strategyTwoId];

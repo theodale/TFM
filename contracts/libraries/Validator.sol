@@ -159,7 +159,7 @@ library Validator {
             "COMBINATION: Invalid strategy one omega signature"
         );
 
-        // Ensure alignment specified by terms is accurate
+        // Ensure aligment specified in parameters applies to strategy pair
         if (_parameters.aligned) {
             require(
                 _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
@@ -167,7 +167,7 @@ library Validator {
             );
         } else {
             require(
-                _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
+                _strategyOne.alpha == _strategyTwo.omega && _strategyOne.omega == _strategyTwo.alpha,
                 "COMBINATION: Strategies are not aligned"
             );
         }

@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "../interfaces/IWallet.sol";
 
+// Use beacon upgradeable?
+// RENAME TO TRUFIN WALLET?
 contract Wallet is IWallet, Initializable {
     using SafeERC20 for IERC20;
 

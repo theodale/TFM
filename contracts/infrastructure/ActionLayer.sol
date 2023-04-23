@@ -15,7 +15,7 @@ import "../misc/Types.sol";
 
 import "hardhat/console.sol";
 
-/// @title The Field Machine
+/// @title TFM Action Layer
 /// @author Field Labs
 contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     // *** STATE VARIABLES ***
@@ -231,17 +231,20 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
 
         Validator.approveCombination(_parameters, strategyOne, strategyTwo, oracle);
 
-        // assetLayer.executeCombination(
-        //     _parameters.strategyOneId,
-        //     _parameters.strategyTwoId,
-        //     strategyOne.alpha,
-        //     strategyOne.omega,
-        //     strategyOne.basis,
-        //     _parameters.resultingAlphaCollateralRequirement,
-        //     _parameters.resultingOmegaCollateralRequirement,
-        //     _parameters.strategyOneAlphaFee,
-        //     _parameters.strategyOneOmegaFee
-        // );
+        ExecuteCombinationParameters memory executeCombinationParameters = ExecuteCombinationParameters(
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId,
+            _parameters.resultingAlphaCollateralRequirement,
+            _parameters.resultingOmegaCollateralRequirement,
+            strategyOne.basis,
+            strategyOne.alpha,
+            strategyOne.omega,
+            _parameters.strategyOneAlphaFee,
+            _parameters.strategyOneOmegaFee,
+            _parameters.aligned
+        );
+
+        assetLayer.executeCombination(executeCombinationParameters);
 
         // Minimally alter strategy one to combined form
         strategyOne.phase = _parameters.resultingPhase;

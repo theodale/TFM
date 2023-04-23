@@ -19,7 +19,9 @@ interface IAssetLayer {
 
     function executePeppermint(ExecutePeppermintParameters calldata _parameters) external;
 
-    function executeTransfer(ExecuteTransferParameters memory _parameters) external;
+    function executeTransfer(ExecuteTransferParameters calldata _parameters) external;
+
+    function executeCombination(ExecuteCombinationParameters calldata _parameters) external;
 
     event Deposit(address indexed user, address basis, uint256 amount);
 
