@@ -1,11 +1,10 @@
 const { ethers } = require("hardhat");
 
 const signCombination = async (
+  combiner,
   TFM,
   strategyOneId,
   strategyTwoId,
-  strategyOneAlpha,
-  strategyOneOmega,
   oracleSignature
 ) => {
   const strategyOne = await TFM.getStrategy(strategyOneId);
@@ -22,22 +21,9 @@ const signCombination = async (
     ]
   );
 
-  const strategyOneAlphaSignature = await strategyOneAlpha.signMessage(
-    ethers.utils.arrayify(hash)
-  );
-  const strategyOneOmegaSignature = await strategyOneOmega.signMessage(
-    ethers.utils.arrayify(hash)
-  );
+  const signature = await combiner.signMessage(ethers.utils.arrayify(hash));
 
-  const combinationParameters = {
-    strategyOneId,
-    strategyTwoId,
-    strategyOneAlphaSignature,
-    strategyOneOmegaSignature,
-    oracleSignature,
-  };
-
-  return combinationParameters;
+  return signature;
 };
 
 module.exports = {

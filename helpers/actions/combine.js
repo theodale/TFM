@@ -1,67 +1,88 @@
-const { mintAndDeposit } = require("../collateral-management.js");
-const { getCombinationTerms } = require("../terms/combination.js");
+const { mintAndDeposit } = require("../utils.js");
+const { getOracleCombinationSignature } = require("../oracle/combination.js");
 const { signCombination } = require("../signing/combination.js");
 
 const combine = async (
   TFM,
-  CollateralManager,
+  FundManager,
   Basis,
   strategyOneId,
   strategyTwoId,
-  strategyOneAlpha,
-  strategyOneOmega,
+  alphaOne,
+  omegaOne,
   oracle,
-  strategyOneAlphaFee,
-  strategyOneOmegaFee,
+  alphaOneFee,
+  omegaOneFee,
   resultingAlphaCollateralRequirement,
   resultingOmegaCollateralRequirement,
   resultingPhase,
   resultingAmplitude
 ) => {
-  // Cover combiners fees
-
-  // Post required collateral
   await mintAndDeposit(
-    CollateralManager,
+    alphaOne,
+    alphaOneFee.add(resultingAlphaCollateralRequirement),
     Basis,
-    strategyOneAlpha,
-    strategyOneAlphaFee
+    FundManager
   );
   await mintAndDeposit(
-    CollateralManager,
+    omegaOne,
+    omegaOneFee.add(resultingOmegaCollateralRequirement),
     Basis,
-    strategyOneOmega,
-    strategyOneOmegaFee
+    FundManager
   );
 
-  // COMBINE
-
-  const { combinationTerms, oracleSignature } = await getCombinationTerms(
+  const oracleSignature = await getOracleCombinationSignature(
     TFM,
     oracle,
     strategyOneId,
     strategyTwoId,
-    strategyOneAlphaFee,
-    strategyOneOmegaFee,
+    alphaOneFee,
+    omegaOneFee,
     resultingAlphaCollateralRequirement,
     resultingOmegaCollateralRequirement,
     resultingPhase,
     resultingAmplitude
   );
 
-  const combinationParameters = await signCombination(
+  const alphaOneSignature = await signCombination(
+    alphaOne,
     TFM,
     strategyOneId,
     strategyTwoId,
-    strategyOneAlpha,
-    strategyOneOmega,
+    oracleSignature
+  );
+  const omegaOneSignature = await signCombination(
+    omegaOne,
+    TFM,
+    strategyOneId,
+    strategyTwoId,
     oracleSignature
   );
 
-  const combinationTransaction = await TFM.combine(
-    combinationTerms,
-    combinationParameters
-  );
+  const oracleNonce = await TFM.oracleNonce();
+
+  const strategyOne = await TFM.getStrategy(strategyOneId);
+  const strategyTwo = await TFM.getStrategy(strategyTwoId);
+
+  const aligned = strategyOne.alpha == strategyTwo.alpha;
+
+  const combinationParameters = [
+    alphaOneFee,
+    omegaOneFee,
+    resultingAlphaCollateralRequirement,
+    resultingOmegaCollateralRequirement,
+    resultingAmplitude,
+    resultingPhase,
+    oracleNonce,
+    aligned,
+    strategyOneId,
+    strategyTwoId,
+    alphaOneSignature,
+    omegaOneSignature,
+    oracleSignature,
+  ];
+
+  const combinationTransaction = await TFM.combine(combinationParameters);
 
   return combinationTransaction;
 };

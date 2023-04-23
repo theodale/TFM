@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const getExerciseTerms = async (TFM, oracle, strategyId, payout) => {
+const getOracleExerciseSignature = async (TFM, oracle, strategyId, payout) => {
   const oracleNonce = await TFM.oracleNonce();
 
   const strategy = await TFM.getStrategy(strategyId);
@@ -30,14 +30,9 @@ const getExerciseTerms = async (TFM, oracle, strategyId, payout) => {
 
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-  const exerciseTerms = {
-    payout,
-    oracleNonce,
-  };
-
-  return { oracleSignature, exerciseTerms };
+  return oracleSignature;
 };
 
 module.exports = {
-  getExerciseTerms,
+  getOracleExerciseSignature,
 };

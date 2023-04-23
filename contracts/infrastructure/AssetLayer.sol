@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../interfaces/IAssetLayer.sol";
-import "../interfaces/IWallet.sol";
+import "../interfaces/ITrufinWallet.sol";
 
 import "../misc/Types.sol";
 
@@ -34,11 +34,11 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     address walletImplementation;
 
     // Stores each user's wallet
-    mapping(address => IWallet) public wallets;
+    mapping(address => ITrufinWallet) public wallets;
 
     // Records how much collateral a user has allocated to a strategy
     // Maps user => strategy ID => amount
-    mapping(address => mapping(uint256 => CollateralBalance)) public collateralBalances;
+    mapping(address => mapping(uint256 => Allocation)) public collaterals;
 
     // Records how many unallocated basis tokens a user has available to provide as collateral
     // Maps user => basis => amount
@@ -72,6 +72,22 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         walletImplementation = _walletImplementation;
     }
 
+    // *** GETTERS ***
+
+    /// @notice Gets the amount of collateral a user has allocated to a specific strategy position.
+    /// @param _position True for alpha, false for omega.
+    function getAllocation(
+        address _user,
+        uint256 _strategyId,
+        bool _position
+    ) external view returns (uint256 allocation) {
+        if (_position) {
+            allocation = collaterals[_user][_strategyId].alphaBalance;
+        } else {
+            allocation = collaterals[_user][_strategyId].omegaBalance;
+        }
+    }
+
     // *** WALLET CREATION ***
 
     // Deploys a new wallet for the caller if they do not have one
@@ -79,7 +95,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         require(address(wallets[msg.sender]) == address(0), "COLLATERAL MANAGER: Caller has wallet already");
 
         // Deploy proxy & initialize
-        IWallet wallet = IWallet(Clones.clone(walletImplementation));
+        ITrufinWallet wallet = ITrufinWallet(Clones.clone(walletImplementation));
         wallet.initialize();
 
         // Register wallet
@@ -240,8 +256,8 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         uint256 availableSender = reserves[_parameters.sender][_parameters.basis] +
             (
                 _parameters.alphaTransfer
-                    ? collateralBalances[_parameters.sender][_parameters.strategyId].alphaBalance
-                    : collateralBalances[_parameters.sender][_parameters.strategyId].omegaBalance
+                    ? collaterals[_parameters.sender][_parameters.strategyId].alphaBalance
+                    : collaterals[_parameters.sender][_parameters.strategyId].omegaBalance
             );
 
         {
@@ -287,12 +303,12 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
 
         // Update collateral
         if (_parameters.alphaTransfer) {
-            collateralBalances[_parameters.sender][_parameters.strategyId].alphaBalance = 0;
-            collateralBalances[_parameters.recipient][_parameters.strategyId].alphaBalance = _parameters
+            collaterals[_parameters.sender][_parameters.strategyId].alphaBalance = 0;
+            collaterals[_parameters.recipient][_parameters.strategyId].alphaBalance = _parameters
                 .recipientCollateralRequirement;
         } else {
-            collateralBalances[_parameters.sender][_parameters.strategyId].omegaBalance = 0;
-            collateralBalances[_parameters.recipient][_parameters.strategyId].omegaBalance = _parameters
+            collaterals[_parameters.sender][_parameters.strategyId].omegaBalance = 0;
+            collaterals[_parameters.recipient][_parameters.strategyId].omegaBalance = _parameters
                 .recipientCollateralRequirement;
         }
 
@@ -305,60 +321,122 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         uint256 availableAlphaOne;
         uint256 availableOmegaOne;
 
+        // Perform aligment-specific logic
         if (_parameters.aligned) {
             availableAlphaOne =
                 reserves[_parameters.alphaOne][_parameters.basis] +
-                collateralBalances[_parameters.alphaOne][_parameters.strategyOneId].alphaBalance +
-                collateralBalances[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
+                collaterals[_parameters.alphaOne][_parameters.strategyOneId].alphaBalance +
+                collaterals[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
 
             availableOmegaOne =
                 reserves[_parameters.omegaOne][_parameters.basis] +
-                collateralBalances[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
-                collateralBalances[_parameters.omegaOne][_parameters.strategyTwoId].omegaBalance;
+                collaterals[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
+                collaterals[_parameters.omegaOne][_parameters.strategyTwoId].omegaBalance;
+
+            delete collaterals[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
+            delete collaterals[_parameters.omegaOne][_parameters.strategyTwoId].omegaBalance;
         } else {
             availableAlphaOne =
                 reserves[_parameters.alphaOne][_parameters.basis] +
-                collateralBalances[_parameters.alphaOne][_parameters.strategyOneId].omegaBalance +
-                collateralBalances[_parameters.alphaOne][_parameters.strategyTwoId].alphaBalance;
-
+                collaterals[_parameters.alphaOne][_parameters.strategyOneId].alphaBalance +
+                collaterals[_parameters.alphaOne][_parameters.strategyTwoId].omegaBalance;
             availableOmegaOne =
                 reserves[_parameters.omegaOne][_parameters.basis] +
-                collateralBalances[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
-                collateralBalances[_parameters.omegaOne][_parameters.strategyTwoId].alphaBalance;
+                collaterals[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance +
+                collaterals[_parameters.omegaOne][_parameters.strategyTwoId].alphaBalance;
+
+            delete collaterals[_parameters.alphaOne][_parameters.strategyTwoId].omegaBalance;
+            delete collaterals[_parameters.omegaOne][_parameters.strategyTwoId].alphaBalance;
         }
 
-        // // Ensure alignment specified by terms is accurate
-        // if (_parameters.aligned) {
-        //     require(
-        //         _strategyOne.alpha == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.omega,
-        //         "COMBINATION: Strategies are not aligned"
-        //     );
-        // } else {
-        //     require(
-        //         _strategyOne.omega == _strategyTwo.alpha && _strategyOne.omega == _strategyTwo.alpha,
-        //         "COMBINATION: Strategies are not aligned"
-        //     );
-        // }
+        // Update reserves
+        reserves[_parameters.alphaOne][_parameters.basis] =
+            availableAlphaOne -
+            _parameters.resultingAlphaCollateralRequirement;
+        reserves[_parameters.omegaOne][_parameters.basis] =
+            availableOmegaOne -
+            _parameters.resultingOmegaCollateralRequirement;
 
-        // // Get each combiner's available collateral for their combined strategy position
-        // uint256 availableAlphaOne = reserves[_alphaOne][_basis] +
-        //     collaterals[_alphaOne][_strategyOneId] +
-        //     collaterals[_alphaOne][_strategyTwoId];
-        // uint256 availableOmegaOne = deposits[_omegaOne][_basis] +
-        //     collaterals[_omegaOne][_strategyOneId] +
-        //     collaterals[_omegaOne][_strategyTwoId];
-        // // Update deposits
-        // deposits[_alphaOne][_basis] = availableAlphaOne - _resultingAlphaCollateralRequirement - _alphaOneFee;
-        // deposits[_omegaOne][_basis] = availableOmegaOne - _resultingOmegaCollateralRequirement - _omegaOneFee;
-        // // Set combined strategy collaterals
-        // collaterals[_alphaOne][_strategyOneId] = _resultingAlphaCollateralRequirement;
-        // collaterals[_omegaOne][_strategyOneId] = _resultingOmegaCollateralRequirement;
-        // // Delete redundant collaterals
-        // delete collaterals[_alphaOne][_strategyTwoId];
-        // delete collaterals[_omegaOne][_strategyTwoId];
-        // // Transfer fees
-        // _transferFromWallet(_alphaOne, _basis, treasury, _alphaOneFee);
-        // _transferFromWallet(_omegaOne, _basis, treasury, _omegaOneFee);
+        // Set collateral allocations on combined strategy
+        collaterals[_parameters.alphaOne][_parameters.strategyOneId].alphaBalance = _parameters
+            .resultingAlphaCollateralRequirement;
+        collaterals[_parameters.omegaOne][_parameters.strategyOneId].omegaBalance = _parameters
+            .resultingOmegaCollateralRequirement;
+
+        // Transfer fees
+        _transferFromWallet(_parameters.basis, _parameters.alphaOne, treasury, _parameters.alphaOneFee);
+        _transferFromWallet(_parameters.basis, _parameters.omegaOne, treasury, _parameters.omegaOneFee);
+    }
+
+    // Potential DoS => allocation is less than payout => liquidation is required
+    function executeExercise(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        address _basis,
+        int256 _payout
+    ) external tfmOnly {
+        uint256 absolutePayout;
+        if (_payout > 0) {
+            absolutePayout = uint256(_payout);
+
+            reserves[_alpha][_basis] += collaterals[_alpha][_strategyId].alphaBalance - absolutePayout;
+            reserves[_omega][_basis] += absolutePayout + collaterals[_omega][_strategyId].omegaBalance;
+
+            _transferFromWallet(_basis, _alpha, address(wallets[_omega]), absolutePayout);
+        } else {
+            absolutePayout = uint256(-_payout);
+
+            reserves[_alpha][_basis] += absolutePayout + collaterals[_alpha][_strategyId].alphaBalance;
+            reserves[_omega][_basis] += collaterals[_omega][_strategyId].omegaBalance - absolutePayout;
+
+            _transferFromWallet(_basis, _omega, address(wallets[_alpha]), absolutePayout);
+        }
+
+        // Delete exercised strategy collaterals
+        delete collaterals[_alpha][_strategyId].alphaBalance;
+        delete collaterals[_omega][_strategyId].omegaBalance;
+    }
+
+    function liquidate(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        int256 _compensation,
+        address _basis,
+        uint256 _alphaPenalisation,
+        uint256 _omegaPenalisation
+    ) external tfmOnly {
+        // // Cache wallets on stack
+        // ITrufinWallet alphaWallet = wallets[_alpha];
+        // ITrufinWallet omegaWallet = wallets[_omega];
+        // // Cache to avoid multiple storage writes
+        // uint256 alphaReduction;
+        // uint256 omegaReduction;
+        // uint256 absoluteCompensation;
+        // // Process any compensation
+        // if (_compensation > 0) {
+        //     absoluteCompensation = uint256(_compensation);
+        //     deposits[_omega][_basis] += absoluteCompensation;
+        //     alphaReduction = absoluteCompensation;
+        //     _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
+        // } else if (_compensation < 0) {
+        //     absoluteCompensation = uint256(-_compensation);
+        //     deposits[_alpha][_basis] += absoluteCompensation;
+        //     omegaReduction = absoluteCompensation;
+        //     _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
+        // }
+        // // Transfer protocol fees
+        // if (_alphaPenalisation > 0) {
+        //     alphaReduction += _alphaPenalisation;
+        //     _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
+        // }
+        // if (_omegaPenalisation > 0) {
+        //     omegaReduction += _omegaPenalisation;
+        //     _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
+        // }
+        // collaterals[_alpha][_strategyId] -= alphaReduction;
+        // collaterals[_omega][_strategyId] -= omegaReduction;
     }
 
     // *** INTERNAL METHODS ***
@@ -385,10 +463,8 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         SharedMintLogicParameters memory _parameters
     ) internal returns (uint256 alphaRemaining, uint256 omegaRemaining) {
         // Set strategy collaterals
-        collateralBalances[_parameters.alpha][_parameters.strategyId].alphaBalance = _parameters
-            .alphaCollateralRequirement;
-        collateralBalances[_parameters.omega][_parameters.strategyId].omegaBalance = _parameters
-            .omegaCollateralRequirement;
+        collaterals[_parameters.alpha][_parameters.strategyId].alphaBalance = _parameters.alphaCollateralRequirement;
+        collaterals[_parameters.omega][_parameters.strategyId].omegaBalance = _parameters.omegaCollateralRequirement;
 
         uint256 absolutePremium;
 
@@ -445,76 +521,6 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
 
         return (alphaRemaining, omegaRemaining);
     }
-
-    function novate() external tfmOnly {}
-
-    // Potential DoS => allocation is less than payout => liquidation is required
-    function exercise(
-        uint256 _strategyId,
-        address _alpha,
-        address _omega,
-        address _basis,
-        int256 _payout
-    ) external tfmOnly {
-        // uint256 absolutePayout;
-        // if (_payout > 0) {
-        //     absolutePayout = uint256(_payout);
-        //     deposits[_alpha][_basis] += collaterals[_alpha][_strategyId] - absolutePayout;
-        //     deposits[_omega][_basis] += absolutePayout + collaterals[_omega][_strategyId];
-        //     _transferFromWallet(_alpha, _basis, address(wallets[_omega]), absolutePayout);
-        // } else {
-        //     absolutePayout = uint256(-_payout);
-        //     deposits[_alpha][_basis] += absolutePayout + collaterals[_alpha][_strategyId];
-        //     deposits[_omega][_basis] += collaterals[_omega][_strategyId] - absolutePayout;
-        //     _transferFromWallet(_omega, _basis, address(wallets[_alpha]), absolutePayout);
-        // }
-        // // Delete exercised strategy collaterals
-        // delete collaterals[_alpha][_strategyId];
-        // delete collaterals[_omega][_strategyId];
-    }
-
-    function liquidate(
-        uint256 _strategyId,
-        address _alpha,
-        address _omega,
-        int256 _compensation,
-        address _basis,
-        uint256 _alphaPenalisation,
-        uint256 _omegaPenalisation
-    ) external tfmOnly {
-        // // Cache wallets on stack
-        // IWallet alphaWallet = wallets[_alpha];
-        // IWallet omegaWallet = wallets[_omega];
-        // // Cache to avoid multiple storage writes
-        // uint256 alphaReduction;
-        // uint256 omegaReduction;
-        // uint256 absoluteCompensation;
-        // // Process any compensation
-        // if (_compensation > 0) {
-        //     absoluteCompensation = uint256(_compensation);
-        //     deposits[_omega][_basis] += absoluteCompensation;
-        //     alphaReduction = absoluteCompensation;
-        //     _transferFromWallet(alphaWallet, _basis, address(omegaWallet), absoluteCompensation);
-        // } else if (_compensation < 0) {
-        //     absoluteCompensation = uint256(-_compensation);
-        //     deposits[_alpha][_basis] += absoluteCompensation;
-        //     omegaReduction = absoluteCompensation;
-        //     _transferFromWallet(omegaWallet, _basis, address(alphaWallet), absoluteCompensation);
-        // }
-        // // Transfer protocol fees
-        // if (_alphaPenalisation > 0) {
-        //     alphaReduction += _alphaPenalisation;
-        //     _transferFromWallet(alphaWallet, _basis, treasury, _alphaPenalisation);
-        // }
-        // if (_omegaPenalisation > 0) {
-        //     omegaReduction += _omegaPenalisation;
-        //     _transferFromWallet(omegaWallet, _basis, treasury, _omegaPenalisation);
-        // }
-        // collaterals[_alpha][_strategyId] -= alphaReduction;
-        // collaterals[_omega][_strategyId] -= omegaReduction;
-    }
-
-    /// *** INTERNAL METHODS ***
 
     // Grants owner upgrade authorization
     function _authorizeUpgrade(address) internal override onlyOwner {}

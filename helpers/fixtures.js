@@ -9,7 +9,7 @@ async function freshDeployment() {
   const ValidatorFactory = await ethers.getContractFactory("Validator");
   const Validator = await ValidatorFactory.deploy();
 
-  const Wallet = await ethers.getContractFactory("Wallet");
+  const Wallet = await ethers.getContractFactory("TrufinWallet");
   const WalletImplementation = await Wallet.deploy();
 
   // Deploy FundManager

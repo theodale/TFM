@@ -4,9 +4,9 @@ The options infrastructure of the future.
 
 ### Architecture
 
-The Field Machine consists of two smart contract layers.
+The Field Machine consists of two principal smart contract layers.
 
-- `Action Layer`: contains option-related functionality.
-- `Asset Layer`: carrys out all the protocol's token-related operations.
+- `ActionLayer`: contains option-related functionality.
+- `AssetLayer`: carrys out all the protocol's token-related operations.
 
-In addition to these two main components, a `TrufinWallet` is used to hold user funds and a `Validator` library is delegated to in order to perform signature verifications.
+In addition to these two main components, a `TrufinWallet` is used to hold user funds and a `Validator` library is delegated to by the `ActionLayer` in order to perform signature verifications.

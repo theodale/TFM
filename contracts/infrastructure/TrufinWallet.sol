@@ -5,11 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "../interfaces/IWallet.sol";
+import "../interfaces/ITrufinWallet.sol";
 
 // Use beacon upgradeable?
-// RENAME TO TRUFIN WALLET?
-contract Wallet is IWallet, Initializable {
+contract TrufinWallet is ITrufinWallet, Initializable {
     using SafeERC20 for IERC20;
 
     address collateralManager;

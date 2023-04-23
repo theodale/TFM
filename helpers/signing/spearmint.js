@@ -1,12 +1,13 @@
 const { ethers } = require("hardhat");
 
 const signSpearmint = async (
+  spearminter,
   alpha,
   omega,
+  TFM,
   oracleSignature,
   premium,
-  transferable,
-  TFM
+  transferable
 ) => {
   const mintNonce = await TFM.getMintNonce(alpha.address, omega.address);
 
@@ -22,10 +23,9 @@ const signSpearmint = async (
     ]
   );
 
-  const alphaSignature = await alpha.signMessage(ethers.utils.arrayify(hash));
-  const omegaSignature = await omega.signMessage(ethers.utils.arrayify(hash));
+  const signature = await spearminter.signMessage(ethers.utils.arrayify(hash));
 
-  return { alphaSignature, omegaSignature };
+  return signature;
 };
 
 module.exports = {

@@ -5,6 +5,12 @@ pragma solidity =0.8.14;
 import "../misc/Types.sol";
 
 interface IAssetLayer {
+    function getAllocation(
+        address _user,
+        uint256 _strategyId,
+        bool _position
+    ) external view returns (uint256 allocation);
+
     function executeSpearmint(
         uint256 _strategyId,
         address _alpha,
@@ -22,6 +28,14 @@ interface IAssetLayer {
     function executeTransfer(ExecuteTransferParameters calldata _parameters) external;
 
     function executeCombination(ExecuteCombinationParameters calldata _parameters) external;
+
+    function executeExercise(
+        uint256 _strategyId,
+        address _alpha,
+        address _omega,
+        address _basis,
+        int256 _payout
+    ) external;
 
     event Deposit(address indexed user, address basis, uint256 amount);
 

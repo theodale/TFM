@@ -9,7 +9,7 @@ const checkAllocations = async (
   allocations
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const collateralBalance = await collateralManager.collateralBalances(
+    const collateralBalance = await collateralManager.collaterals(
       users[i].address,
       strategyId
     );

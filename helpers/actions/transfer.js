@@ -77,9 +77,9 @@ const transfer = async (
 
   let staticPartySignature = "0x";
 
-  // if (!strategy.transferable) {
-  //   staticPartySignature = await signTransfer(staticParty);
-  // }
+  if (!strategy.transferable) {
+    staticPartySignature = await signTransfer(staticParty);
+  }
 
   const transferParameters = [
     strategyId,

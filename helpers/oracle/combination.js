@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const getCombinationTerms = async (
+const getOracleCombinationSignature = async (
   TFM,
   oracle,
   strategyOneId,
@@ -68,20 +68,9 @@ const getCombinationTerms = async (
 
   const oracleSignature = await oracle.signMessage(ethers.utils.arrayify(hash));
 
-  const combinationTerms = {
-    strategyOneAlphaFee,
-    strategyOneOmegaFee,
-    resultingAlphaCollateralRequirement,
-    resultingOmegaCollateralRequirement,
-    resultingAmplitude,
-    resultingPhase,
-    oracleNonce,
-    aligned,
-  };
-
-  return { oracleSignature, combinationTerms };
+  return oracleSignature;
 };
 
 module.exports = {
-  getCombinationTerms,
+  getOracleCombinationSignature,
 };

@@ -21,8 +21,6 @@ const spearmint = async (
   alphaFee,
   omegaFee
 ) => {
-  // DEPOSIT MINTER COLLATERALS
-
   const alphaWallet = await FundManager.wallets(alpha.address);
   const omegaWallet = await FundManager.wallets(omega.address);
 
@@ -47,8 +45,6 @@ const spearmint = async (
   await mintAndDeposit(alpha, alphaDeposit, basis, FundManager);
   await mintAndDeposit(omega, omegaDeposit, basis, FundManager);
 
-  // SPEARMINT
-
   const oracleSignature = await getOracleMintSignature(
     TFM,
     oracle,
@@ -64,13 +60,25 @@ const spearmint = async (
     phase
   );
 
-  const { alphaSignature, omegaSignature } = await signSpearmint(
+  // Switch to two calls for each signer
+  const alphaSignature = await signSpearmint(
+    alpha,
     alpha,
     omega,
+    TFM,
     oracleSignature,
     premium,
-    transferable,
-    TFM
+    transferable
+  );
+
+  const omegaSignature = await signSpearmint(
+    omega,
+    alpha,
+    omega,
+    TFM,
+    oracleSignature,
+    premium,
+    transferable
   );
 
   const oracleNonce = await TFM.oracleNonce();

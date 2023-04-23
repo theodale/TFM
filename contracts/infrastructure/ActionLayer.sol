@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IActionLayer.sol";
 import "../interfaces/IAssetLayer.sol";
 import "../libraries/Validator.sol";
-import "../interfaces/IWallet.sol";
+import "../interfaces/ITrufinWallet.sol";
 import "../misc/Types.sol";
 
 import "hardhat/console.sol";
@@ -272,28 +272,72 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     //     emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
     // }
 
-    // // Call to finalise a strategy's positions after it has expired
-    // function exercise(ExerciseTerms calldata _terms, ExerciseParameters calldata _parameters) external {
-    //     _checkOracleNonce(_terms.oracleNonce);
+    // Call to finalise a strategy's positions after it has expired
+    function exercise(ExerciseParameters calldata _parameters) external {
+        _checkOracleNonce(_parameters.oracleNonce);
 
-    //     Strategy storage strategy = strategies[_parameters.strategyId];
+        Strategy storage strategy = strategies[_parameters.strategyId];
 
-    //     Utils.validateExerciseTerms(_terms, strategy, oracle, _parameters.oracleSignature);
+        Validator.approveExercise(
+            _parameters.payout,
+            _parameters.oracleNonce,
+            _parameters.oracleSignature,
+            strategy,
+            oracle
+        );
 
-    //     assetLayer.exercise(
-    //         _parameters.strategyId,
-    //         strategy.alpha,
-    //         strategy.omega,
-    //         strategy.basis,
-    //         _terms.payout
-    //     );
+        assetLayer.executeExercise(
+            _parameters.strategyId,
+            strategy.alpha,
+            strategy.omega,
+            strategy.basis,
+            _parameters.payout
+        );
 
-    //     _deleteStrategy(_parameters.strategyId);
+        _deleteStrategy(_parameters.strategyId);
 
-    //     emit Exercise(_parameters.strategyId);
-    // }
+        emit Exercise(_parameters.strategyId);
+    }
 
-    // // *** MAINTENANCE ***
+    // *** MAINTENANCE ***
+
+    function liquidate(LiquidationParameters calldata _parameters) external {
+        require(msg.sender == liquidator, "TFM: Liquidator only");
+
+        Strategy storage strategy = strategies[_parameters.strategyId];
+
+        uint256 alphaInitialCollateral = assetLayer.getAllocation(strategy.alpha, _parameters.strategyId, true);
+        uint256 omegaInitialCollateral = assetLayer.getAllocation(strategy.omega, _parameters.strategyId, false);
+
+        ApproveLiquidationParameters memory approveLiquidationParameters = ApproveLiquidationParameters(
+            _parameters.oracleNonce,
+            _parameters.compensation,
+            _parameters.alphaPenalisation,
+            _parameters.omegaPenalisation,
+            _parameters.postLiquidationAmplitude,
+            alphaInitialCollateral,
+            omegaInitialCollateral,
+            oracle,
+            _parameters.oracleSignature
+        );
+
+        Validator.approveLiquidation(approveLiquidationParameters, strategy);
+
+        // Reduce strategy's amplitude to maintain collateralisation
+        strategy.amplitude = _parameters.postLiquidationAmplitude;
+
+        // assetLayer.liquidate(
+        //     _params.strategyId,
+        //     strategy.alpha,
+        //     strategy.omega,
+        //     _terms.compensation,
+        //     strategy.basis,
+        //     _terms.alphaPenalisation,
+        //     _terms.omegaPenalisation
+        // );
+
+        emit Liquidation(_parameters.strategyId);
+    }
 
     // function updateOracleNonce(uint256 _oracleNonce, bytes calldata _oracleSignature) external {
     //     // Prevents replay of out-of-date signatures
@@ -308,48 +352,15 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     //     emit OracleNonceUpdated(_oracleNonce);
     // }
 
-    // function liquidate(LiquidationTerms calldata _terms, LiquidationParameters calldata _params) external {
-    //     require(msg.sender == liquidator, "TFM: Liquidator only");
-
-    //     Strategy storage strategy = strategies[_params.strategyId];
-
-    //     uint256 alphaInitialCollateral = assetLayer.allocations(strategy.alpha, _params.strategyId);
-    //     uint256 omegaInitialCollateral = assetLayer.allocations(strategy.omega, _params.strategyId);
-
-    //     Utils.validateLiquidationTerms(
-    //         _terms,
-    //         strategy,
-    //         _params.oracleSignature,
-    //         oracle,
-    //         alphaInitialCollateral,
-    //         omegaInitialCollateral
-    //     );
-
-    //     // Reduce strategy's amplitude to maintain collateralisation
-    //     strategy.amplitude = _terms.postLiquidationAmplitude;
-
-    //     assetLayer.liquidate(
-    //         _params.strategyId,
-    //         strategy.alpha,
-    //         strategy.omega,
-    //         _terms.compensation,
-    //         strategy.basis,
-    //         _terms.alphaPenalisation,
-    //         _terms.omegaPenalisation
-    //     );
-
-    //     emit Liquidation(_params.strategyId);
-    // }
-
     // // *** ADMIN SETTERS ***
 
-    // function setLiquidator(address _liquidator) public onlyOwner {
-    //     liquidator = _liquidator;
-    // }
+    function setLiquidator(address _liquidator) public onlyOwner {
+        liquidator = _liquidator;
+    }
 
-    // function setassetLayer(address _assetLayer) external onlyOwner {
-    //     assetLayer = IassetLayer(_assetLayer);
-    // }
+    function setassetLayer(address _assetLayer) external onlyOwner {
+        assetLayer = IAssetLayer(_assetLayer);
+    }
 
     // // *** METHODS ***
 

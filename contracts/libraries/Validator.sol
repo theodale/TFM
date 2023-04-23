@@ -4,7 +4,7 @@ pragma solidity =0.8.14;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "../interfaces/IWallet.sol";
+import "../interfaces/ITrufinWallet.sol";
 import "../misc/Types.sol";
 
 import "hardhat/console.sol";
@@ -151,11 +151,11 @@ library Validator {
         bytes32 hash = _generateMessageHash(combinerMessage);
 
         require(
-            _isValidSignature(hash, _parameters.strategyOneAlphaSignature, _strategyOne.alpha),
+            _isValidSignature(hash, _parameters.alphaOneSignature, _strategyOne.alpha),
             "COMBINATION: Invalid strategy two alpha signature"
         );
         require(
-            _isValidSignature(hash, _parameters.strategyOneOmegaSignature, _strategyOne.omega),
+            _isValidSignature(hash, _parameters.omegaOneSignature, _strategyOne.omega),
             "COMBINATION: Invalid strategy one omega signature"
         );
 
@@ -204,9 +204,60 @@ library Validator {
         );
     }
 
+    function approveExercise(
+        int256 _payout,
+        uint256 _oracleNonce,
+        bytes calldata _oracleSignature,
+        Strategy storage _strategy,
+        address _oracle
+    ) external view {
+        bytes memory message = abi.encodePacked(
+            _strategy.expiry,
+            _strategy.bra,
+            _strategy.ket,
+            _strategy.basis,
+            _strategy.amplitude,
+            _strategy.phase,
+            _oracleNonce,
+            _payout
+        );
+
+        require(_isValidSignature(message, _oracleSignature, _oracle), "EXERCISE: Invalid Trufin oracle signature");
+    }
+
+    function approveLiquidation(
+        ApproveLiquidationParameters calldata _parameters,
+        Strategy storage _strategy
+    ) external view {
+        bytes memory message = abi.encodePacked(
+            abi.encodePacked(
+                _strategy.expiry,
+                _strategy.bra,
+                _strategy.ket,
+                _strategy.basis,
+                _strategy.amplitude,
+                _strategy.phase,
+                _parameters.oracleNonce,
+                _parameters.compensation,
+                _parameters.alphaPenalisation
+            ),
+            abi.encodePacked(
+                _parameters.omegaPenalisation,
+                _parameters.postLiquidationAmplitude,
+                _parameters.alphaInitialCollateral,
+                _parameters.omegaInitialCollateral
+            )
+        );
+
+        require(
+            _isValidSignature(message, _parameters.oracleSignature, _parameters.oracle),
+            "LIQUIDATION: Invalid Trufin oracle signature"
+        );
+    }
+
     // Transfers ERC20 tokens from a user's wallet to a recipient address
     function _transferFromWallet(
-        mapping(address => IWallet) storage _wallets,
+        mapping(address => ITrufinWallet) storage _wallets,
         address _token,
         address _sender,
         address _recipient,
@@ -216,7 +267,7 @@ library Validator {
     }
 
     function _transferFromWalletTwice(
-        mapping(address => IWallet) storage _wallets,
+        mapping(address => ITrufinWallet) storage _wallets,
         address _sender,
         address _basis,
         address _recipientOne,

@@ -19,7 +19,7 @@ struct Strategy {
     uint256 actionNonce;
 }
 
-struct CollateralBalance {
+struct Allocation {
     uint256 alphaBalance;
     uint256 omegaBalance;
 }
@@ -104,8 +104,8 @@ struct CombinationParameters {
     bool aligned;
     uint256 strategyOneId;
     uint256 strategyTwoId;
-    bytes strategyOneAlphaSignature;
-    bytes strategyOneOmegaSignature;
+    bytes alphaOneSignature;
+    bytes omegaOneSignature;
     bytes oracleSignature;
 }
 
@@ -131,22 +131,15 @@ struct NovationParameters {
     uint256 fee;
 }
 
-// EXERCISE
-
-struct ExerciseTerms {
+struct ExerciseParameters {
     // If payout is +ve/-ve => alpha/omega pays omega/alpha
     int256 payout;
     uint256 oracleNonce;
-}
-
-struct ExerciseParameters {
     bytes oracleSignature;
     uint256 strategyId;
 }
 
-// LIQUIDATE
-
-struct LiquidationTerms {
+struct LiquidationParameters {
     uint256 oracleNonce;
     // If +ve/-ve => alpha/omega pays omega/alpha absolute compensation
     int256 compensation;
@@ -154,9 +147,6 @@ struct LiquidationTerms {
     uint256 alphaPenalisation;
     uint256 omegaPenalisation;
     int256 postLiquidationAmplitude;
-}
-
-struct LiquidationParameters {
     uint256 strategyId;
     bytes oracleSignature;
 }
@@ -196,11 +186,10 @@ struct ExecuteCombinationParameters {
     uint256 resultingAlphaCollateralRequirement;
     uint256 resultingOmegaCollateralRequirement;
     address basis;
-    // Position in resulting combined strategy
     address alphaOne;
     address omegaOne;
-    uint256 strategyOneAlphaFee;
-    uint256 strategyOneOmegaFee;
+    uint256 alphaOneFee;
+    uint256 omegaOneFee;
     bool aligned;
 }
 
@@ -216,6 +205,18 @@ struct ApprovePeppermintParameters {
     address basis;
     int256 amplitude;
     int256[2][] phase;
+    address oracle;
+    bytes oracleSignature;
+}
+
+struct ApproveLiquidationParameters {
+    uint256 oracleNonce;
+    int256 compensation;
+    uint256 alphaPenalisation;
+    uint256 omegaPenalisation;
+    int256 postLiquidationAmplitude;
+    uint256 alphaInitialCollateral;
+    uint256 omegaInitialCollateral;
     address oracle;
     bytes oracleSignature;
 }

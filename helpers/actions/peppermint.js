@@ -20,8 +20,6 @@ const peppermint = async (
   alphaFee,
   omegaFee
 ) => {
-  // DEPOSIT MINTER COLLATERALS
-
   const alphaWallet = await FundManager.wallets(alpha.address);
   const omegaWallet = await FundManager.wallets(omega.address);
 
