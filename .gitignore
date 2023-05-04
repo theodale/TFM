@@ -4,4 +4,7 @@ artifacts
 
 .env
 
+coverage.json
+coverage
+
 TODO.md

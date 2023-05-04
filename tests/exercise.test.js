@@ -13,8 +13,8 @@ const { STRATEGY, MINT, EXERCISE } = require("./PARAMETERS.js");
 describe("EXERCISE", () => {
   beforeEach(async () => {
     ({
-      TFM: this.TFM,
-      FundManager: this.FundManager,
+      ActionLayer: this.ActionLayer,
+      AssetLayer: this.AssetLayer,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -34,8 +34,8 @@ describe("EXERCISE", () => {
       } = await spearmint(
         this.alice,
         this.bob,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -52,7 +52,7 @@ describe("EXERCISE", () => {
       ));
 
       this.exerciseTransaction = await exercise(
-        this.TFM,
+        this.ActionLayer,
         this.strategyId,
         this.oracle,
         EXERCISE.payout
@@ -60,7 +60,7 @@ describe("EXERCISE", () => {
     });
 
     it("Exercised strategy deleted", async () => {
-      const strategy = await this.TFM.getStrategy(this.strategyId);
+      const strategy = await this.ActionLayer.getStrategy(this.strategyId);
 
       expect(strategy.expiry).to.equal(0);
       expect(strategy.amplitude).to.equal(0);
@@ -73,9 +73,9 @@ describe("EXERCISE", () => {
       expect(strategy.phase).to.deep.equal([]);
     });
 
-    it("Correct post-exercise unallocated collateral balances", async () => {
+    it("Correct post-exercise reserve balances", async () => {
       await checkReserves(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [
@@ -87,13 +87,13 @@ describe("EXERCISE", () => {
 
     it("Emits 'Exercise' event with correct parameters", async () => {
       await expect(this.exerciseTransaction)
-        .to.emit(this.TFM, "Exercise")
+        .to.emit(this.ActionLayer, "Exercise")
         .withArgs(this.strategyId);
     });
 
-    it("Payout transferred between personal pools", async () => {
+    it("Payout transferred between wallets", async () => {
       await checkWalletBalanceChanges(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [EXERCISE.payout.mul(-1), EXERCISE.payout],

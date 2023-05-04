@@ -3,13 +3,13 @@ const { expect } = require("chai");
 // This file contains functions that can be used to check conditions during tests
 
 const checkAllocations = async (
-  collateralManager,
+  FundManager,
   strategyId,
   users,
   allocations
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const collateralBalance = await collateralManager.collaterals(
+    const collateralBalance = await FundManager.collaterals(
       users[i].address,
       strategyId
     );
@@ -23,9 +23,9 @@ const checkAllocations = async (
   }
 };
 
-const checkReserves = async (collateralManager, basis, users, balances) => {
+const checkReserves = async (FundManager, basis, users, balances) => {
   for (let i = 0; i < users.length; i++) {
-    const unallocatedCollateral = await collateralManager.reserves(
+    const unallocatedCollateral = await FundManager.reserves(
       users[i].address,
       basis.address
     );
@@ -35,14 +35,14 @@ const checkReserves = async (collateralManager, basis, users, balances) => {
 };
 
 const checkWalletBalanceChanges = async (
-  CollateralManager,
+  FundManager,
   Basis,
   users,
   changes,
   transaction
 ) => {
   for (let i = 0; i < users.length; i++) {
-    const walletAddress = await CollateralManager.wallets(users[i].address);
+    const walletAddress = await FundManager.wallets(users[i].address);
 
     await expect(transaction).to.changeTokenBalance(
       Basis,

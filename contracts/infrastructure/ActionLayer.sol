@@ -7,9 +7,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "./Validator.sol";
 import "../interfaces/IActionLayer.sol";
 import "../interfaces/IAssetLayer.sol";
-import "../libraries/Validator.sol";
 import "../interfaces/ITrufinWallet.sol";
 import "../misc/Types.sol";
 
@@ -29,7 +29,7 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     // The AssetLayer contract being utilised by this ActionLayer
     IAssetLayer assetLayer;
 
-    // Signs and validates data packages
+    // Signs and validates trustable data
     address oracle;
 
     // Time at which the oracle nonce was last updated
@@ -128,6 +128,8 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Approved calling third party mints a strategy for two users.
     /// @dev Making deposits to a third party authorizes counterparty willingness to mint the strategy.
     function peppermint(PeppermintParameters calldata _parameters) external {
+        _checkOracleNonce(_parameters.oracleNonce);
+
         ApprovePeppermintParameters memory approvePeppermintParameters = ApprovePeppermintParameters(
             _parameters.expiry,
             _parameters.alphaCollateralRequirement,
@@ -145,8 +147,6 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         );
 
         Validator.approvePeppermint(approvePeppermintParameters);
-
-        _checkOracleNonce(_parameters.oracleNonce);
 
         uint256 strategyId = _createStrategy(
             _parameters.alpha,
@@ -256,14 +256,38 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         emit Combination(_parameters.strategyOneId, _parameters.strategyTwoId);
     }
 
-    // function novate(NovationTerms calldata _terms, NovationParameters calldata _parameters) external {
-    //     Strategy storage strategyOne = strategies[_parameters.strategyOneId];
-    //     Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
-
-    //     _checkOracleNonce(_terms.oracleNonce);
-
-    //     emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
+    // struct NovationParameters {
+    //     uint256 strategyOneId;
+    //     uint256 strategyTwoId;
+    //     bytes oracleSignature;
+    //     bytes middlePartySignature;
+    //     // These signatures below are not used if their respective strategy is transferable
+    //     bytes strategyOneNonMiddlePartySignature;
+    //     bytes strategyTwoNonMiddlePartySignature;
+    //     bool updateStrategyTwoOmega;
+    //     uint256 oracleNonce;
+    //     // Collateral requirements of resulting strategies
+    //     uint256 strategyOneResultingAlphaCollateralRequirement;
+    //     uint256 strategyOneResultingOmegaCollateralRequirement;
+    //     uint256 strategyTwoResultingAlphaCollateralRequirement;
+    //     uint256 strategyTwoResultingOmegaCollateralRequirement;
+    //     // Characteristics of resulting strategies
+    //     int256 strategyOneResultingAmplitude;
+    //     int256 strategyTwoResultingAmplitude;
+    //     // Action fee paid by middle party
+    //     uint256 fee;
     // }
+
+    function novate(NovationParameters calldata _parameters) external {
+        _checkOracleNonce(_parameters.oracleNonce);
+
+        Strategy storage strategyOne = strategies[_parameters.strategyOneId];
+        Strategy storage strategyTwo = strategies[_parameters.strategyTwoId];
+
+        Validator.approveNovation(_parameters, strategyOne, strategyTwo, oracle);
+
+        emit Novation(_parameters.strategyOneId, _parameters.strategyTwoId);
+    }
 
     /// @notice Call to finalise a strategy's positions after it has expired.
     function exercise(ExerciseParameters calldata _parameters) external {
@@ -296,6 +320,8 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
 
     function liquidate(LiquidationParameters calldata _parameters) external {
         require(msg.sender == liquidator, "TFM: Liquidator only");
+
+        _checkOracleNonce(_parameters.oracleNonce);
 
         Strategy storage strategy = strategies[_parameters.strategyId];
 
@@ -345,19 +371,19 @@ contract ActionLayer is IActionLayer, OwnableUpgradeable, UUPSUpgradeable {
         emit OracleNonceUpdated(_oracleNonce);
     }
 
-    // // *** ADMIN SETTERS ***
+    // *** ADMIN SETTERS ***
 
     function setLiquidator(address _liquidator) public onlyOwner {
         liquidator = _liquidator;
     }
 
-    function setassetLayer(address _assetLayer) external onlyOwner {
+    function setAssetLayer(address _assetLayer) external onlyOwner {
         assetLayer = IAssetLayer(_assetLayer);
     }
 
-    // // *** METHODS ***
+    // *** METHODS ***
 
-    // method that updates a pairs mint nonce
+    // Updates a pair's mint nonce
     function _incrementMintNonce(address partyOne, address partyTwo) private {
         if (partyOne < partyTwo) {
             mintNonce[partyOne][partyTwo]++;

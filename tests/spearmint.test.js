@@ -13,8 +13,8 @@ const { STRATEGY, MINT } = require("./PARAMETERS.js");
 describe("SPEARMINT", () => {
   beforeEach(async () => {
     ({
-      TFM: this.TFM,
-      FundManager: this.FundManager,
+      ActionLayer: this.ActionLayer,
+      AssetLayer: this.AssetLayer,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -35,8 +35,8 @@ describe("SPEARMINT", () => {
       } = await spearmint(
         this.alice,
         this.bob,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -54,7 +54,7 @@ describe("SPEARMINT", () => {
     });
 
     it("Newly minted strategy has correct state", async () => {
-      const strategy = await this.TFM.getStrategy(this.strategyId);
+      const strategy = await this.ActionLayer.getStrategy(this.strategyId);
 
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);
@@ -70,7 +70,7 @@ describe("SPEARMINT", () => {
 
     it("Correct strategy collateral allocations", async () => {
       await checkAllocations(
-        this.FundManager,
+        this.AssetLayer,
         this.strategyId,
         [this.alice, this.bob],
         [
@@ -86,18 +86,18 @@ describe("SPEARMINT", () => {
       );
     });
 
-    it("Correct unallocated collateral balances post-mint", async () => {
+    it("Correct reserve balances post-mint", async () => {
       await checkReserves(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [0, 0]
       );
     });
 
-    it("Premium exchanged between and fees taken from personal pools", async () => {
+    it("Premium exchanged between and fees taken from wallets", async () => {
       await checkWalletBalanceChanges(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [
@@ -118,7 +118,7 @@ describe("SPEARMINT", () => {
 
     it("Emits 'Spearmint' event with correct parameters", async () => {
       await expect(this.spearmintTransaction)
-        .to.emit(this.TFM, "Spearmint")
+        .to.emit(this.ActionLayer, "Spearmint")
         .withArgs(this.strategyId);
     });
   });
@@ -126,7 +126,7 @@ describe("SPEARMINT", () => {
   // describe("Reversions", () => {
   //   beforeEach(async () => {
   //     ({ mintTerms: this.mintTerms, oracleSignature } = await getMintTerms(
-  //       this.TFM,
+  //       this.ActionLayer,
   //       this.oracle,
   //       STRATEGY.expiry,
   //       MINT.alphaCollateralRequirement,
@@ -146,7 +146,7 @@ describe("SPEARMINT", () => {
   //     //   oracleSignature,
   //     //   MINT.premium,
   //     //   STRATEGY.transferable,
-  //     //   this.TFM
+  //     //   this.ActionLayer
   //     // );
   //   });
 
@@ -157,7 +157,7 @@ describe("SPEARMINT", () => {
   //   // - mint nonce incorrect - increments mint nonce
 
   //   // it("Reverts if alpha has insufficient unallocated collateral to pay fee", async () => {
-  //   //   // this.FundManager.withdraw();
+  //   //   // this.ActionLayer.withdraw();
   //   // });
 
   //   // it("Reverts if omega has insufficient unallocated collateral to pay fee", async () => {

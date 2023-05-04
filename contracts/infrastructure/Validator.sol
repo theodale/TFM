@@ -16,24 +16,24 @@ library Validator {
         address _oracle,
         uint256 _mintNonce
     ) external view {
-        bytes memory oracleMessage = abi.encodePacked(
-            _parameters.expiry,
-            _parameters.alphaCollateralRequirement,
-            _parameters.omegaCollateralRequirement,
-            _parameters.alphaFee,
-            _parameters.omegaFee,
-            _parameters.oracleNonce,
-            _parameters.bra,
-            _parameters.ket,
-            _parameters.basis,
-            _parameters.amplitude,
-            _parameters.phase
-        );
+        // bytes memory oracleMessage = abi.encodePacked(
+        //     _parameters.expiry,
+        //     _parameters.alphaCollateralRequirement,
+        //     _parameters.omegaCollateralRequirement,
+        //     _parameters.alphaFee,
+        //     _parameters.omegaFee,
+        //     _parameters.oracleNonce,
+        //     _parameters.bra,
+        //     _parameters.ket,
+        //     _parameters.basis,
+        //     _parameters.amplitude,
+        //     _parameters.phase
+        // );
 
-        require(
-            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
-            "SPEARMINT: Invalid Trufin oracle signature"
-        );
+        // require(
+        //     _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+        //     "SPEARMINT: Invalid Trufin oracle signature"
+        // );
 
         bytes memory spearminterMessage = abi.encodePacked(
             _parameters.oracleSignature,
@@ -97,6 +97,7 @@ library Validator {
         bytes32 hash = _generateMessageHash(transfererMessage);
 
         require(_isValidSignature(hash, _parameters.senderSignature, _sender), "TRANSFER: Sender signature invalid");
+
         require(
             _isValidSignature(hash, _parameters.recipientSignature, _parameters.recipient),
             "TRANSFER: Recipient signature invalid"
@@ -112,26 +113,26 @@ library Validator {
             );
         }
 
-        bytes memory oracleMessage = abi.encodePacked(
-            abi.encodePacked(
-                _strategy.expiry,
-                _strategy.bra,
-                _strategy.ket,
-                _strategy.basis,
-                _strategy.amplitude,
-                _strategy.phase,
-                _parameters.senderFee,
-                _parameters.recipientFee,
-                _parameters.recipientCollateralRequirement,
-                _parameters.alphaTransfer
-            ),
-            _parameters.oracleNonce
-        );
+        // bytes memory oracleMessage = abi.encodePacked(
+        //     abi.encodePacked(
+        //         _strategy.expiry,
+        //         _strategy.bra,
+        //         _strategy.ket,
+        //         _strategy.basis,
+        //         _strategy.amplitude,
+        //         _strategy.phase,
+        //         _parameters.senderFee,
+        //         _parameters.recipientFee,
+        //         _parameters.recipientCollateralRequirement,
+        //         _parameters.alphaTransfer
+        //     ),
+        //     _parameters.oracleNonce
+        // );
 
-        require(
-            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
-            "TRANSFER: Invalid Trufin oracle signature"
-        );
+        // require(
+        //     _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+        //     "TRANSFER: Invalid Trufin oracle signature"
+        // );
     }
 
     function approveCombination(
@@ -172,36 +173,93 @@ library Validator {
             );
         }
 
-        // Investigate security risk with two phases in message => should be ok if not next to each other?
-        bytes memory oracleMessage = abi.encodePacked(
-            abi.encodePacked(
-                _strategyOne.expiry,
-                _strategyOne.bra,
-                _strategyOne.ket,
-                _strategyOne.basis,
-                _strategyOne.amplitude,
-                _strategyOne.phase,
-                _strategyTwo.expiry,
-                _strategyTwo.bra,
-                _strategyTwo.ket,
-                _strategyTwo.basis
-            ),
-            abi.encodePacked(
-                _strategyTwo.amplitude,
-                _strategyTwo.phase,
-                _parameters.strategyOneAlphaFee,
-                _parameters.strategyOneOmegaFee,
-                _parameters.resultingAlphaCollateralRequirement,
-                _parameters.resultingOmegaCollateralRequirement,
-                _parameters.resultingPhase
-            ),
-            abi.encodePacked(_parameters.resultingAmplitude, _parameters.oracleNonce, _parameters.aligned)
+        // // Investigate security risk with two phases in message => should be ok if not next to each other?
+        // bytes memory oracleMessage = abi.encodePacked(
+        //     abi.encodePacked(
+        //         _strategyOne.expiry,
+        //         _strategyOne.bra,
+        //         _strategyOne.ket,
+        //         _strategyOne.basis,
+        //         _strategyOne.amplitude,
+        //         _strategyOne.phase,
+        //         _strategyTwo.expiry,
+        //         _strategyTwo.bra,
+        //         _strategyTwo.ket,
+        //         _strategyTwo.basis
+        //     ),
+        //     abi.encodePacked(
+        //         _strategyTwo.amplitude,
+        //         _strategyTwo.phase,
+        //         _parameters.strategyOneAlphaFee,
+        //         _parameters.strategyOneOmegaFee,
+        //         _parameters.resultingAlphaCollateralRequirement,
+        //         _parameters.resultingOmegaCollateralRequirement,
+        //         _parameters.resultingPhase
+        //     ),
+        //     abi.encodePacked(_parameters.resultingAmplitude, _parameters.oracleNonce, _parameters.aligned)
+        // );
+
+        // require(
+        //     _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+        //     "COMBINATION: Invalid Trufin oracle signature"
+        // );
+    }
+
+    // update strategy omega?
+    function approveNovation(
+        NovationParameters calldata _parameters,
+        Strategy storage _strategyOne,
+        Strategy storage _strategyTwo,
+        address _oracle
+    ) external view {
+        // bytes memory oracleMessage = abi.encodePacked(
+        //     abi.encodePacked(
+        //         _strategyOne.expiry,
+        //         _strategyOne.bra,
+        //         _strategyOne.ket,
+        //         _strategyOne.basis,
+        //         _strategyOne.amplitude,
+        //         _strategyOne.phase,
+        //         _strategyTwo.expiry,
+        //         _strategyTwo.bra,
+        //         _strategyTwo.ket,
+        //         _strategyTwo.basis,
+        //         _strategyTwo.amplitude,
+        //         _strategyTwo.phase
+        //     ),
+        //     abi.encodePacked(
+        //         _parameters.oracleNonce,
+        //         _parameters.strategyOneResultingAlphaCollateralRequirement,
+        //         _parameters.strategyOneResultingOmegaCollateralRequirement,
+        //         _parameters.strategyTwoResultingAlphaCollateralRequirement,
+        //         _parameters.strategyTwoResultingOmegaCollateralRequirement,
+        //         _parameters.strategyOneResultingAmplitude,
+        //         _parameters.strategyTwoResultingAmplitude,
+        //         _parameters.fee
+        //     )
+        // );
+
+        // require(
+        //     _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
+        //     "NOVATION: Invalid Trufin oracle signature"
+        // );
+
+        bytes memory novatorMessage = abi.encodePacked(
+            _parameters.oracleSignature,
+            _parameters.strategyOneId,
+            _parameters.strategyTwoId
         );
 
         require(
-            _isValidSignature(oracleMessage, _parameters.oracleSignature, _oracle),
-            "COMBINATION: Invalid Trufin oracle signature"
+            _isValidSignature(novatorMessage, _parameters.oracleSignature, _oracle),
+            "NOVATION: Invalid novator oracle signature"
         );
+
+        if (!_strategyOne.transferable) {
+            //
+        }
+
+        if (!_strategyTwo.transferable) {}
     }
 
     function approveExercise(
@@ -211,48 +269,46 @@ library Validator {
         Strategy storage _strategy,
         address _oracle
     ) external view {
-        bytes memory message = abi.encodePacked(
-            _strategy.expiry,
-            _strategy.bra,
-            _strategy.ket,
-            _strategy.basis,
-            _strategy.amplitude,
-            _strategy.phase,
-            _oracleNonce,
-            _payout
-        );
-
-        require(_isValidSignature(message, _oracleSignature, _oracle), "EXERCISE: Invalid Trufin oracle signature");
+        // bytes memory message = abi.encodePacked(
+        //     _strategy.expiry,
+        //     _strategy.bra,
+        //     _strategy.ket,
+        //     _strategy.basis,
+        //     _strategy.amplitude,
+        //     _strategy.phase,
+        //     _oracleNonce,
+        //     _payout
+        // );
+        // require(_isValidSignature(message, _oracleSignature, _oracle), "EXERCISE: Invalid Trufin oracle signature");
     }
 
     function approveLiquidation(
         ApproveLiquidationParameters calldata _parameters,
         Strategy storage _strategy
     ) external view {
-        bytes memory message = abi.encodePacked(
-            abi.encodePacked(
-                _strategy.expiry,
-                _strategy.bra,
-                _strategy.ket,
-                _strategy.basis,
-                _strategy.amplitude,
-                _strategy.phase,
-                _parameters.oracleNonce,
-                _parameters.compensation,
-                _parameters.alphaPenalisation
-            ),
-            abi.encodePacked(
-                _parameters.omegaPenalisation,
-                _parameters.postLiquidationAmplitude,
-                _parameters.alphaInitialCollateral,
-                _parameters.omegaInitialCollateral
-            )
-        );
-
-        require(
-            _isValidSignature(message, _parameters.oracleSignature, _parameters.oracle),
-            "LIQUIDATION: Invalid Trufin oracle signature"
-        );
+        // bytes memory message = abi.encodePacked(
+        //     abi.encodePacked(
+        //         _strategy.expiry,
+        //         _strategy.bra,
+        //         _strategy.ket,
+        //         _strategy.basis,
+        //         _strategy.amplitude,
+        //         _strategy.phase,
+        //         _parameters.oracleNonce,
+        //         _parameters.compensation,
+        //         _parameters.alphaPenalisation
+        //     ),
+        //     abi.encodePacked(
+        //         _parameters.omegaPenalisation,
+        //         _parameters.postLiquidationAmplitude,
+        //         _parameters.alphaInitialCollateral,
+        //         _parameters.omegaInitialCollateral
+        //     )
+        // );
+        // require(
+        //     _isValidSignature(message, _parameters.oracleSignature, _parameters.oracle),
+        //     "LIQUIDATION: Invalid Trufin oracle signature"
+        // );
     }
 
     function approveOracleNonceUpdate(
@@ -260,12 +316,12 @@ library Validator {
         bytes calldata _oracleSignature,
         address _oracle
     ) external view {
-        bytes memory encoding = abi.encodePacked(_oracleNonce);
-
-        require(
-            _isValidSignature(encoding, _oracleSignature, _oracle),
-            "ORACLE NONCE UPDATE: Invalid Trufin oracle signature"
-        );
+        // // Is bytes(_oracleNonce) possible?
+        // bytes memory encoding = abi.encodePacked(_oracleNonce);
+        // require(
+        //     _isValidSignature(encoding, _oracleSignature, _oracle),
+        //     "ORACLE NONCE UPDATE: Invalid Trufin oracle signature"
+        // );
     }
 
     // Transfers ERC20 tokens from a user's wallet to a recipient address

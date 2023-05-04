@@ -13,8 +13,8 @@ const { STRATEGY, MINT } = require("./PARAMETERS.js");
 describe("PEPPERMINT", () => {
   beforeEach(async () => {
     ({
-      TFM: this.TFM,
-      FundManager: this.FundManager,
+      ActionLayer: this.ActionLayer,
+      AssetLayer: this.AssetLayer,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -37,8 +37,8 @@ describe("PEPPERMINT", () => {
         this.alice,
         this.bob,
         this.pepperminter,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -56,7 +56,7 @@ describe("PEPPERMINT", () => {
     });
 
     it("Newly minted strategy has correct state", async () => {
-      const strategy = await this.TFM.getStrategy(this.strategyId);
+      const strategy = await this.ActionLayer.getStrategy(this.strategyId);
 
       expect(strategy.alpha).to.equal(this.alice.address);
       expect(strategy.omega).to.equal(this.bob.address);
@@ -72,7 +72,7 @@ describe("PEPPERMINT", () => {
 
     it("Correct strategy collateral allocations", async () => {
       await checkAllocations(
-        this.FundManager,
+        this.AssetLayer,
         this.strategyId,
         [this.alice, this.bob],
         [
@@ -88,18 +88,18 @@ describe("PEPPERMINT", () => {
       );
     });
 
-    it("Correct unallocated collateral balances post-peppermint", async () => {
+    it("Correct reserve balances post-peppermint", async () => {
       await checkReserves(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [0, 0]
       );
     });
 
-    it("Premium exchanged between and fees taken from personal pools", async () => {
+    it("Premium exchanged between and fees taken from wallets", async () => {
       await checkWalletBalanceChanges(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [
@@ -120,7 +120,7 @@ describe("PEPPERMINT", () => {
 
     it("Emits 'Peppermint' event with correct parameters", async () => {
       await expect(this.peppermintTransaction)
-        .to.emit(this.TFM, "Peppermint")
+        .to.emit(this.ActionLayer, "Peppermint")
         .withArgs(this.strategyId);
     });
   });

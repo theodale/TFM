@@ -114,10 +114,9 @@ struct NovationParameters {
     uint256 strategyTwoId;
     bytes oracleSignature;
     bytes middlePartySignature;
-    // These are not used if their respective strategy is transferable
+    // These signatures below are not used if their respective strategy is transferable
     bytes strategyOneNonMiddlePartySignature;
     bytes strategyTwoNonMiddlePartySignature;
-    bool updateStrategyTwoOmega;
     uint256 oracleNonce;
     // Collateral requirements of resulting strategies
     uint256 strategyOneResultingAlphaCollateralRequirement;

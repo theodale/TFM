@@ -18,8 +18,8 @@ const { STRATEGY, MINT, TRANSFER } = require("./PARAMETERS.js");
 describe("TRANSFER", () => {
   beforeEach(async () => {
     ({
-      TFM: this.TFM,
-      FundManager: this.FundManager,
+      ActionLayer: this.ActionLayer,
+      AssetLayer: this.AssetLayer,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -41,8 +41,8 @@ describe("TRANSFER", () => {
       } = await spearmint(
         this.alice,
         this.bob,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -59,8 +59,8 @@ describe("TRANSFER", () => {
       ));
 
       this.transferTransaction = await transfer(
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.Basis,
         this.strategyId,
         this.oracle,
@@ -74,21 +74,21 @@ describe("TRANSFER", () => {
       );
     });
 
-    it("Updates transferred position minted strategy has correct state", async () => {
-      const strategy = await this.TFM.getStrategy(this.strategyId);
+    it("Updates transferred position to correct state", async () => {
+      const strategy = await this.ActionLayer.getStrategy(this.strategyId);
 
       expect(strategy.alpha).to.equal(this.carol.address);
     });
 
     it("Emits 'Transfer' event with correct parameters", async () => {
       await expect(this.transferTransaction)
-        .to.emit(this.TFM, "Transfer")
+        .to.emit(this.ActionLayer, "Transfer")
         .withArgs(this.strategyId);
     });
 
     it("Correct strategy collateral allocations post-transfer", async () => {
       await checkAllocations(
-        this.FundManager,
+        this.AssetLayer,
         this.strategyId,
         [this.alice, this.bob, this.carol],
         [
@@ -108,9 +108,9 @@ describe("TRANSFER", () => {
       );
     });
 
-    it("Premium exchanged between and fees taken from personal pools", async () => {
+    it("Premium exchanged between and fees taken from wallets", async () => {
       await checkWalletBalanceChanges(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.carol],
         [
@@ -121,9 +121,9 @@ describe("TRANSFER", () => {
       );
     });
 
-    it("Correct unallocated collateral balances post-transfer", async () => {
+    it("Correct reserve balances post-transfer", async () => {
       await checkReserves(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.carol],
         [MINT.alphaCollateralRequirement, TRANSFER.premium]

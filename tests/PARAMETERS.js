@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-// These objects contain the default parameter values used in the tests
+// These exported objects contain sets of parameter values used for testing
 
 const STRATEGY = {
   expiry: 1680000000,
@@ -35,6 +35,20 @@ const COMBINATION = {
   resultingAmplitude: ethers.utils.parseEther("10"),
 };
 
+const NOVATION = {
+  strategyOneResultingAlphaCollateralRequirement:
+    ethers.utils.parseEther("0.1"),
+  strategyOneResultingOmegaCollateralRequirement:
+    ethers.utils.parseEther("0.2"),
+  strategyTwoResultingAlphaCollateralRequirement:
+    ethers.utils.parseEther("0.3"),
+  strategyTwoResultingOmegaCollateralRequirement:
+    ethers.utils.parseEther("0.4"),
+  strategyOneResultingAmplitude: ethers.utils.parseEther("5"),
+  strategyTwoResultingAmplitude: ethers.utils.parseEther("4"),
+  fee: ethers.utils.parseEther("0.01"),
+};
+
 const EXERCISE = {
   payout: ethers.utils.parseEther("0.5"),
 };
@@ -51,6 +65,7 @@ module.exports = {
   MINT,
   TRANSFER,
   COMBINATION,
+  NOVATION,
   EXERCISE,
   LIQUIDATION,
 };

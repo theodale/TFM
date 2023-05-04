@@ -6,7 +6,6 @@ const { spearmint } = require("../helpers/actions/spearmint.js");
 const { combine } = require("../helpers/actions/combine.js");
 const {
   checkAllocations,
-  checkReserves,
   checkWalletBalanceChanges,
 } = require("../helpers/assertions.js");
 const { STRATEGY, MINT, COMBINATION } = require("./PARAMETERS.js");
@@ -14,8 +13,8 @@ const { STRATEGY, MINT, COMBINATION } = require("./PARAMETERS.js");
 describe("COMBINATION", () => {
   beforeEach(async () => {
     ({
-      TFM: this.TFM,
-      FundManager: this.FundManager,
+      ActionLayer: this.ActionLayer,
+      AssetLayer: this.AssetLayer,
       BRA: this.BRA,
       KET: this.KET,
       Basis: this.Basis,
@@ -33,8 +32,8 @@ describe("COMBINATION", () => {
       ({ strategyId: this.strategyOneId } = await spearmint(
         this.alice,
         this.bob,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -53,8 +52,8 @@ describe("COMBINATION", () => {
       ({ strategyId: this.strategyTwoId } = await spearmint(
         this.alice,
         this.bob,
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.oracle,
         this.BRA,
         this.KET,
@@ -71,8 +70,8 @@ describe("COMBINATION", () => {
       ));
 
       this.combinationTransaction = await combine(
-        this.TFM,
-        this.FundManager,
+        this.ActionLayer,
+        this.AssetLayer,
         this.Basis,
         this.strategyOneId,
         this.strategyTwoId,
@@ -89,7 +88,7 @@ describe("COMBINATION", () => {
     });
 
     it("Strategy one updated to combined state", async () => {
-      const combinationStrategy = await this.TFM.getStrategy(
+      const combinationStrategy = await this.ActionLayer.getStrategy(
         this.strategyOneId
       );
 
@@ -103,7 +102,7 @@ describe("COMBINATION", () => {
 
     it("Correct combined strategy collateral allocations post-combination", async () => {
       await checkAllocations(
-        this.FundManager,
+        this.AssetLayer,
         this.strategyOneId,
         [this.alice, this.bob],
         [
@@ -119,11 +118,11 @@ describe("COMBINATION", () => {
       );
     });
 
-    it("Correct unallocated collateral balances post-combination", async () => {});
+    it("Correct reserve balances post-combination", async () => {});
 
-    it("Fees sent from pools to treasury", async () => {
+    it("Fees sent from wallets to treasury", async () => {
       await checkWalletBalanceChanges(
-        this.FundManager,
+        this.AssetLayer,
         this.Basis,
         [this.alice, this.bob],
         [
@@ -141,7 +140,9 @@ describe("COMBINATION", () => {
     });
 
     it("Strategy two deleted", async () => {
-      const deletedStrategy = await this.TFM.getStrategy(this.strategyTwoId);
+      const deletedStrategy = await this.ActionLayer.getStrategy(
+        this.strategyTwoId
+      );
 
       expect(deletedStrategy.phase).to.deep.equal([]);
       expect(deletedStrategy.amplitude).to.equal(0);
@@ -154,7 +155,7 @@ describe("COMBINATION", () => {
 
     it("Emits 'Combine' event with correct parameters", async () => {
       await expect(this.combinationTransaction)
-        .to.emit(this.TFM, "Combination")
+        .to.emit(this.ActionLayer, "Combination")
         .withArgs(this.strategyOneId, this.strategyTwoId);
     });
   });

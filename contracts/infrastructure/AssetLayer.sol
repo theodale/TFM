@@ -28,7 +28,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     address treasury;
 
     // Address of the TFM that controls this manager
-    address tfm;
+    address actionLayer;
 
     // Implementation for wallet proxies
     address walletImplementation;
@@ -54,8 +54,8 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
 
     // *** MODIFIERS ***
 
-    modifier tfmOnly() {
-        require(msg.sender == tfm, "COLLATERAL MANAGER: TFM only");
+    modifier actionLayerOnly() {
+        require(msg.sender == actionLayer, "ASSET LAYER: Action layer only");
         _;
     }
 
@@ -172,8 +172,8 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
 
     // *** ADMIN SETTERS ***
 
-    function setTFM(address _tfm) external onlyOwner {
-        tfm = _tfm;
+    function setActionLayer(address _actionLayer) external onlyOwner {
+        actionLayer = _actionLayer;
     }
 
     function setTreasury(address _treasury) external onlyOwner {
@@ -192,7 +192,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         uint256 _omegaCollateralRequirement,
         uint256 _alphaFee,
         uint256 _omegaFee
-    ) external tfmOnly {
+    ) external actionLayerOnly {
         SharedMintLogicParameters memory parameters = SharedMintLogicParameters(
             _strategyId,
             _alpha,
@@ -214,7 +214,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         reserves[_omega][_basis] = omegaRemaining;
     }
 
-    function executePeppermint(ExecutePeppermintParameters calldata _parameters) external tfmOnly {
+    function executePeppermint(ExecutePeppermintParameters calldata _parameters) external actionLayerOnly {
         LockedDeposit storage alphaDeposit = lockedDeposits[_parameters.alpha][_parameters.pepperminter][
             _parameters.basis
         ][_parameters.alphaDepositId];
@@ -248,7 +248,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Ensure correct collateral and security flow when transferring to self
-    function executeTransfer(ExecuteTransferParameters calldata _parameters) external tfmOnly {
+    function executeTransfer(ExecuteTransferParameters calldata _parameters) external actionLayerOnly {
         uint256 requirementRecipient = _parameters.recipientCollateralRequirement + _parameters.recipientFee;
         uint256 requirementSender = _parameters.senderFee;
 
@@ -317,7 +317,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         reserves[_parameters.sender][_parameters.basis] = availableSender - requirementSender;
     }
 
-    function executeCombination(ExecuteCombinationParameters calldata _parameters) external tfmOnly {
+    function executeCombination(ExecuteCombinationParameters calldata _parameters) external actionLayerOnly {
         uint256 availableAlphaOne;
         uint256 availableOmegaOne;
 
@@ -368,6 +368,8 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         _transferFromWallet(_parameters.basis, _parameters.omegaOne, treasury, _parameters.omegaOneFee);
     }
 
+    function executeNovation() external actionLayerOnly {}
+
     // Potential DoS => allocation is less than payout => liquidation is required
     function executeExercise(
         uint256 _strategyId,
@@ -375,7 +377,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         address _omega,
         address _basis,
         int256 _payout
-    ) external tfmOnly {
+    ) external actionLayerOnly {
         uint256 absolutePayout;
         if (_payout > 0) {
             absolutePayout = uint256(_payout);
@@ -406,7 +408,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
         address _basis,
         uint256 _alphaPenalisation,
         uint256 _omegaPenalisation
-    ) external tfmOnly {
+    ) external actionLayerOnly {
         uint256 alphaReduction;
         uint256 omegaReduction;
 
@@ -466,7 +468,7 @@ contract AssetLayer is IAssetLayer, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Performs mint logic shared between spearmints and peppermints
-    // Reserve/Peppermint deposit updates are carried out in the calling function ()
+    // Reserve/peppermint deposit updates are carried out in the calling function
     function _sharedMintLogic(
         SharedMintLogicParameters memory _parameters
     ) internal returns (uint256 alphaRemaining, uint256 omegaRemaining) {

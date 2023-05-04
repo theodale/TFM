@@ -34,4 +34,9 @@ module.exports = {
   },
 };
 
+// COMMANDS:
 // npx hardhat --network mumbai run scripts/deploy.js
+// npx hardhat verify --network mumbai address
+
+// npx hardhat verify --network mumbai 0x969Db5c8276F5D8F4dd0e88Df97c4e4463520299
+// npx hardhat verify --network mumbai 0x4BD2619f4f758D79E100c43726143510dA564144

@@ -3,71 +3,67 @@ const { ethers } = require("hardhat");
 const main = async () => {
   const owner = await ethers.getSigner();
 
-  console.log("DEPLOYING TRUFIN PROTOCOL:");
+  console.log("DEPLOYING THE FIELD MACHINE:");
   console.log("Deployer:", owner.address);
 
-  // Deploy Utils library
-  const UtilsFactory = await ethers.getContractFactory("Utils");
-  const Utils = await UtilsFactory.deploy();
+  // Deploy Validator library
+  const ValidatorFactory = await ethers.getContractFactory("Validator");
+  const Validator = await ValidatorFactory.deploy();
 
-  console.log("Utils: ", Utils.address);
+  console.log("Validator: ", Validator.address);
 
-  const Wallet = await ethers.getContractFactory("Wallet");
-  const WalletImplementation = await Wallet.deploy();
+  const TrufinWallet = await ethers.getContractFactory("TrufinWallet");
+  const TrufinWalletImplementation = await TrufinWallet.deploy();
 
-  console.log("Wallet Implementation: ", WalletImplementation.address);
-
-  // Deploy CollateralManager
-  const CollateralManagerFactory = await ethers.getContractFactory(
-    "CollateralManager"
+  console.log(
+    "TrufinWallet Implementation: ",
+    TrufinWalletImplementation.address
   );
-  const CollateralManager = await upgrades.deployProxy(
-    CollateralManagerFactory,
-    [owner.address, owner.address, WalletImplementation.address],
+
+  // Deploy AssetLayer
+  const AssetLayerFactory = await ethers.getContractFactory("AssetLayer");
+  const AssetLayer = await upgrades.deployProxy(
+    AssetLayerFactory,
+    [owner.address, owner.address, TrufinWalletImplementation.address],
     {
       kind: "uups",
     }
   );
+  console.log("AssetLayer: ", AssetLayer.address);
+  console.log(
+    "Verify AssetLayer: ",
+    "npx hardhat verify --network mumbai ",
+    AssetLayer.address
+  );
 
-  console.log("CollateralManager: ", CollateralManager.address);
-
-  // Deploy TFM
-  const TFMFactory = await ethers.getContractFactory("TFM", {
+  // Deploy ActionLayer
+  const ActionLayerFactory = await ethers.getContractFactory("ActionLayer", {
     libraries: {
-      Utils: Utils.address,
+      Validator: Validator.address,
     },
   });
-  const TFM = await upgrades.deployProxy(
-    TFMFactory,
-    [
-      CollateralManager.address,
-      owner.address,
-      owner.address,
-      owner.address,
-      3600,
-    ],
+  const ActionLayer = await upgrades.deployProxy(
+    ActionLayerFactory,
+    [owner.address, owner.address, owner.address, 3600, AssetLayer.address],
     {
       unsafeAllowLinkedLibraries: true,
       kind: "uups",
     }
   );
 
-  console.log("TFM: ", TFM.address);
+  console.log("ActionLayer: ", ActionLayer.address);
   console.log(
-    "Verify TFM: ",
+    "Verify ActionLayer: ",
     "npx hardhat verify --network mumbai ",
-    TFM.address
+    ActionLayer.address
   );
 
-  await CollateralManager.setTFM(TFM.address);
+  await AssetLayer.setActionLayer(ActionLayer.address);
 
   const MockERC20Factory = await ethers.getContractFactory("MockERC20");
-
   const Basis = await MockERC20Factory.deploy();
 
   console.log("Basis: ", Basis.address);
-
-  // npx hardhat verify --network mumbai address
 };
 
 main();
